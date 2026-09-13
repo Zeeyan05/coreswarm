@@ -7,6 +7,16 @@
 import type { Claim, ClaimVerificationStatus } from '../types/claims';
 import type { Evidence } from '../types/evidence';
 import type { VerificationDecision } from '../types/verification';
+import { lexicalEntailment } from './entailment';
+
+/**
+ * Minimum keyword coverage for an extract to count as supporting its claim.
+ * Deliberately lenient (1 in 5 keywords): code extracts encode meaning in
+ * identifiers/symbols that prose paraphrases, so lexical overlap understates
+ * real support. This gate rejects unrelated extracts, not paraphrases —
+ * genuine semantic judgment belongs to the LLM entailment hook.
+ */
+const MIN_COVERAGE = 0.2;
 
 /**
  * Minimum quality bar for an evidence extract to count toward verification.
@@ -28,6 +38,13 @@ function assessEvidenceQuality(ev: Evidence, claim: Claim): { ok: boolean; reaso
   if (ev.claim_id !== claim.claim_id) {
     return { ok: false, reason: `evidence bound to '${ev.claim_id}', not this claim` };
   }
+  const entail = lexicalEntailment(claim.statement, extract);
+  if (entail.contradicts) {
+    return { ok: false, reason: `extract contradicts claim (${entail.reason})` };
+  }
+  if (entail.coverage < MIN_COVERAGE) {
+    return { ok: false, reason: `extract does not support claim (coverage ${(entail.coverage * 100).toFixed(0)}%, need ${(MIN_COVERAGE * 100).toFixed(0)}%: ${entail.reason})` };
+  }
   return { ok: true, reason: '' };
 }
 
@@ -37,8 +54,9 @@ export class VerifierEngine {
    *
    * Rules:
    * - Dangling refs (IDs absent from the graph) are reported, never silently skipped.
-   * - Evidence must cite source + locator, bind to this claim, and carry substantive content.
-   * - No semantic entailment is claimed: VERIFIED means "grounded in cited extracts", not "proven true".
+   * - Evidence must cite source + locator, bind to this claim, carry substantive
+   *   content, AND lexically support the claim (keyword coverage + no contradiction).
+   * - VERIFIED means "grounded in supporting extracts", not "proven true".
    */
   verifyClaims(
     claims: readonly Claim[],

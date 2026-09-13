@@ -250,6 +250,104 @@ describe('Persistence: export/import round-trip with cross-check', () => {
   });
 });
 
+describe('Entailment: extracts must support their claims', () => {
+  it('unrelated long extract does NOT verify', async () => {
+    const { VerifierEngine } = await import('../src/core/verification/verifier-engine');
+    const engine = new VerifierEngine();
+    const ev = {
+      evidence_id: 'ev_unrelated',
+      claim_id: 'c_u',
+      source: 'src/other.ts',
+      locator: 'lines 1-30',
+      extract: 'This lengthy extract discusses database connection pooling configuration and retry backoff strategies at great length indeed.',
+      collected_by: 'researcher-01',
+      collected_at: new Date().toISOString(),
+      untrusted: true as const,
+    };
+    const claim = {
+      claim_id: 'c_u',
+      statement: 'Ed25519 signatures strictly validate terminal characters for protocol compliance.',
+      type: 'FACT' as const,
+      origin_agent: 'researcher-01',
+      origin_task_id: 'task_test',
+      evidence_refs: ['ev_unrelated'],
+      confidence: 0.9,
+      verification_status: 'UNVERIFIED' as const,
+      created_at: new Date().toISOString(),
+    };
+    const { updatedClaims } = engine.verifyClaims([claim], { ev_unrelated: ev }, 'verifier-01');
+    expect(updatedClaims[0]!.verification_status).not.toBe('VERIFIED');
+  });
+
+  it('contradicting extract does NOT verify', async () => {
+    const { VerifierEngine } = await import('../src/core/verification/verifier-engine');
+    const engine = new VerifierEngine();
+    const ev = {
+      evidence_id: 'ev_contra',
+      claim_id: 'c_c',
+      source: 'src/verify.ts',
+      locator: 'lines 30-45',
+      extract: 'Signature verification strictly validates terminal characters and always enforces canonical padding requirements.',
+      collected_by: 'researcher-01',
+      collected_at: new Date().toISOString(),
+      untrusted: true as const,
+    };
+    const claim = {
+      claim_id: 'c_c',
+      statement: 'Signature verification allows arbitrary padding without validating terminal characters.',
+      type: 'INFERENCE' as const,
+      origin_agent: 'analyst-01',
+      origin_task_id: 'task_test',
+      evidence_refs: ['ev_contra'],
+      confidence: 0.7,
+      verification_status: 'UNVERIFIED' as const,
+      created_at: new Date().toISOString(),
+    };
+    const { updatedClaims } = engine.verifyClaims([claim], { ev_contra: ev }, 'verifier-01');
+    expect(updatedClaims[0]!.verification_status).not.toBe('VERIFIED');
+  });
+});
+
+describe('Decomposer: objective → validated TaskSpecs', () => {
+  it('rejects unknown capabilities and bad dependencies', async () => {
+    const { validateSpecs } = await import('../src/core/llm/decomposer');
+    expect(() =>
+      validateSpecs({ tasks: [{ task_id: 't1', type: 'RESEARCH', title: 'T', objective: 'O', required_capabilities: ['nope'], dependencies: [] }] }, ['source-analysis']),
+    ).toThrow(/Unknown capabilities/);
+    expect(() =>
+      validateSpecs({ tasks: [{ task_id: 't1', type: 'RESEARCH', title: 'T', objective: 'O', dependencies: ['ghost'] }] }, []),
+    ).toThrow(/unknown/);
+    expect(() =>
+      validateSpecs({ tasks: [] }, []),
+    ).toThrow(/1\.\.12/);
+  });
+
+  it('accepts a valid generic plan', async () => {
+    const { validateSpecs } = await import('../src/core/llm/decomposer');
+    const specs = validateSpecs(
+      { tasks: [{ task_id: 'task_sum', type: 'RESEARCH', title: 'Summarize', objective: 'Summarize docs', required_capabilities: ['source-analysis'], dependencies: [] }] },
+      ['source-analysis'],
+    );
+    expect(specs.length).toBe(1);
+    expect(specs[0]!.task_id).toBe('task_sum');
+  });
+});
+
+describe('Nonce coordinator: CAS reservation', () => {
+  it('two instances sharing a DID never collide', async () => {
+    const { NonceCoordinator, MemoryKvBackend } = await import('../src/core/transport/nonce-coordinator');
+    const backend = new MemoryKvBackend();
+    const a = new NonceCoordinator(backend);
+    const b = new NonceCoordinator(backend);
+    let la = 100n;
+    let lb = 100n;
+    const n1 = await a.reserve('room1', 'did:test', () => (++la).toString());
+    const n2 = await b.reserve('room1', 'did:test', () => (++lb).toString());
+    expect(n1).not.toBe(n2);
+    expect(BigInt(n2) > BigInt(n1)).toBe(true);
+  });
+});
+
 describe('Audit E regressions: generic runMission', () => {
   it('runMission accepts custom task specs (non-audit mission)', async () => {
     const { CoreSwarmOrchestrator } = await import('../src/core/orchestrator/orchestrator');

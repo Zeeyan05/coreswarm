@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#060709"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="13.5" fill="none" stroke="#262c39" stroke-width="1.5"/>
+  <!-- links: orchestrator to satellites -->
+  <g stroke="#7dd3fc" stroke-width="1.4" stroke-dasharray="2.5 3" opacity="0.75">
+    <line x1="32" y1="32" x2="32" y2="13"/>
+    <line x1="32" y1="32" x2="49" y2="41"/>
+    <line x1="32" y1="32" x2="15" y2="41"/>
+    <line x1="32" y1="32" x2="32" y2="51"/>
+  </g>
+  <!-- satellites -->
+  <circle cx="32" cy="13" r="4" fill="#0b0d12" stroke="#7dd3fc" stroke-width="1.6"/>
+  <circle cx="32" cy="13" r="1.4" fill="#7dd3fc"/>
+  <circle cx="49" cy="41" r="4" fill="#0b0d12" stroke="#a78bfa" stroke-width="1.6"/>
+  <circle cx="49" cy="41" r="1.4" fill="#a78bfa"/>
+  <circle cx="15" cy="41" r="4" fill="#0b0d12" stroke="#fcd34d" stroke-width="1.6"/>
+  <circle cx="15" cy="41" r="1.4" fill="#fcd34d"/>
+  <circle cx="32" cy="51" r="4" fill="#0b0d12" stroke="#5eead4" stroke-width="1.6"/>
+  <circle cx="32" cy="51" r="1.4" fill="#5eead4"/>
+  <!-- orchestrator core -->
+  <circle cx="32" cy="32" r="9" fill="#0b0d12" stroke="#7dd3fc" stroke-width="2"/>
+  <circle cx="32" cy="32" r="4.5" fill="none" stroke="#7dd3fc" stroke-width="1.2" opacity="0.6"/>
+  <circle cx="32" cy="32" r="2" fill="#7dd3fc"/>
+</svg>

@@ -43,8 +43,31 @@ const EMPTY_METRICS: SystemMetrics = {
   messageCount: 0,
 };
 
+const VIEW_HASHES: readonly ViewKey[] = ['command', 'evidence', 'disputes', 'verify', 'replay', 'protocol', 'agents'];
+
+function viewFromHash(): ViewKey {
+  if (typeof window === 'undefined') return 'command';
+  const h = window.location.hash.replace(/^#\/?/, '') as ViewKey;
+  return (VIEW_HASHES as readonly string[]).includes(h) ? h : 'command';
+}
+
 export default function CoreSwarmPage() {
-  const [view, setView] = useState<ViewKey>('command');
+  const [view, setViewState] = useState<ViewKey>('command');
+
+  // Deep-linkable views (#9): #/evidence, #/replay, ... shareable + back-button safe.
+  useEffect(() => {
+    setViewState(viewFromHash());
+    const onHash = () => setViewState(viewFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const setView = (v: ViewKey) => {
+    setViewState(v);
+    if (typeof window !== 'undefined' && viewFromHash() !== v) {
+      window.location.hash = `/${v}`;
+    }
+  };
   const [isRunning, setIsRunning] = useState(false);
   const [simulateDispute, setSimulateDispute] = useState(true);
   const [simulateTimeout, setSimulateTimeout] = useState(false);
@@ -64,6 +87,28 @@ export default function CoreSwarmPage() {
   const orchestratorRef = useRef<CoreSwarmOrchestrator | null>(null);
   const simLLMRef = useRef<SimulatedLLMProvider | null>(null);
   const runStartRef = useRef(0);
+
+  // Mission history (#10): last 10 runs in localStorage with export links.
+  const [history, setHistory] = useState<Array<{ mission_id: string; objective: string; status: string; at: string }>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('coreswarm-history') ?? '[]') as Array<{ mission_id: string; objective: string; status: string; at: string }>;
+    } catch {
+      return [];
+    }
+  });
+
+  const recordHistory = (m: Mission) => {
+    setHistory((prev) => {
+      const next = [{ mission_id: m.mission_id, objective: m.objective, status: m.status, at: new Date().toISOString() },
+        ...prev.filter((h) => h.mission_id !== m.mission_id)].slice(0, 10);
+      try {
+        localStorage.setItem('coreswarm-history', JSON.stringify(next));
+      } catch {
+        // storage full/blocked — history is best-effort
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let unmounted = false;
@@ -136,7 +181,9 @@ export default function CoreSwarmPage() {
         options,
       );
       setFinalReport(report);
-      setMission(orchestratorRef.current.getCurrentMission());
+      const done = orchestratorRef.current.getCurrentMission();
+      setMission(done);
+      if (done) recordHistory(done);
     } catch (err) {
       console.error('Error executing mission:', err);
     } finally {
@@ -158,6 +205,26 @@ export default function CoreSwarmPage() {
     if (orchestratorRef.current) setMetrics(orchestratorRef.current.metrics.getSnapshot());
   };
 
+  /** Load a persisted mission export. Returns an error string, or null on success. */
+  const handleImport = (data: unknown): string | null => {
+    if (!orchestratorRef.current || isRunning) return 'Busy — wait for the mission to finish.';
+    try {
+      const loaded = orchestratorRef.current.loadMission(data);
+      setMission({ ...loaded });
+      setTasks({ ...loaded.tasks });
+      setClaims({ ...loaded.claims });
+      setEvidenceGraph({ ...loaded.evidence_graph });
+      setDisputes({ ...loaded.disputes });
+      if (loaded.final_result) setFinalReport(loaded.final_result);
+      const evts = orchestratorRef.current.provenance.getEvents();
+      setEvents([...evts]);
+      setMetrics(orchestratorRef.current.metrics.getSnapshot());
+      return null;
+    } catch (err) {
+      return `Import rejected: ${(err as Error)?.message ?? String(err)}`;
+    }
+  };
+
   const go = (v: 'evidence' | 'disputes' | 'replay') =>
     setView(v === 'evidence' ? 'evidence' : v === 'disputes' ? 'disputes' : 'replay');
 
@@ -177,7 +244,7 @@ export default function CoreSwarmPage() {
           tasks={tasks} claims={claims} evidenceGraph={evidenceGraph}
           disputes={disputes} envelopes={envelopes} events={events}
           agents={registeredAgents}
-          isRunning={isRunning} onRun={handleRunMission} onReset={handleReset}
+          isRunning={isRunning} onRun={handleRunMission} onReset={handleReset} onImport={handleImport}
           simulateDispute={simulateDispute} setSimulateDispute={setSimulateDispute}
           simulateTimeout={simulateTimeout} setSimulateTimeout={setSimulateTimeout}
           onGo={go}
@@ -192,6 +259,23 @@ export default function CoreSwarmPage() {
       {view === 'command' && mission && (
         <div className="mt-4">
           <Telemetry metrics={metrics} />
+        </div>
+      )}
+      {view === 'command' && history.length > 0 && (
+        <div className="mt-4 cs-panel px-4 py-3">
+          <div className="cs-label mb-2">Mission history · local</div>
+          <div className="space-y-1">
+            {history.map((h) => (
+              <div key={h.mission_id} className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                <span className="text-white truncate">{h.objective.slice(0, 80)}</span>
+                <span className="flex items-center gap-2 shrink-0 text-[#5d6474]">
+                  <span>{h.status}</span>
+                  <span>{new Date(h.at).toLocaleDateString()}</span>
+                  <span className="text-[#3d4350]">{h.mission_id}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </MissionShell>

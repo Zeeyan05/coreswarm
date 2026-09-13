@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
-import { Play, RotateCcw, AlertTriangle, Clock, CheckCircle2, FlaskConical } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Play, RotateCcw, AlertTriangle, Clock, CheckCircle2, FlaskConical, Download, Upload } from 'lucide-react';
+import { exportMission } from '../core/persistence/index';
 import { SwarmGraph } from './SwarmGraph';
 import { Did, StateDot, GroundedNote } from './primitives';
 import type { Mission, FinalReport } from '../core/types/mission';
@@ -289,6 +290,69 @@ function Synthesis({ report, onGo }: { report: FinalReport; onGo: (v: 'evidence'
   );
 }
 
+/* ================= Persistence: export / import ================= */
+
+function PersistenceControls({
+  mission, events, isRunning, onImport,
+}: {
+  mission: Mission;
+  events: readonly CoreSwarmEvent[];
+  isRunning: boolean;
+  onImport: (data: unknown) => string | null;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const doExport = () => {
+    const blob = new Blob([JSON.stringify(exportMission(mission, events), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${mission.mission_id}.coreswarm.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const doImportFile = async (f: File) => {
+    try {
+      const data = JSON.parse(await f.text()) as unknown;
+      const err = onImport(data);
+      setNotice(err ?? `Imported ${mission.mission_id} — cross-check passed.`);
+    } catch {
+      setNotice('Import failed: not valid JSON.');
+    }
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <button
+        onClick={doExport} disabled={isRunning}
+        title="Download mission as portable JSON (mission + event log)"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
+      >
+        <Download className="w-3.5 h-3.5" />Export
+      </button>
+      <button
+        onClick={() => fileRef.current?.click()} disabled={isRunning}
+        title="Load a previously exported mission (replay cross-checked)"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
+      >
+        <Upload className="w-3.5 h-3.5" />Import
+      </button>
+      <input
+        ref={fileRef} type="file" accept="application/json,.json" className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void doImportFile(f);
+          e.target.value = '';
+        }}
+      />
+      {notice && <span className="font-mono text-[10px] text-[#7dd3fc]">{notice}</span>}
+    </span>
+  );
+}
+
 /* ================= Command deck ================= */
 
 interface CommandDeckProps {
@@ -305,6 +369,7 @@ interface CommandDeckProps {
   isRunning: boolean;
   onRun: (o: { simulateDispute: boolean; simulateTimeout: boolean }) => void;
   onReset: () => void;
+  onImport: (data: unknown) => string | null;
   simulateDispute: boolean;
   setSimulateDispute: (v: boolean) => void;
   simulateTimeout: boolean;
@@ -355,6 +420,9 @@ export function CommandDeck(props: CommandDeckProps) {
                 >
                   <RotateCcw className="w-3.5 h-3.5" />Reset
                 </button>
+                <PersistenceControls
+                  mission={mission} events={events} isRunning={isRunning} onImport={props.onImport}
+                />
                 <span className="ml-auto font-mono text-[10px] text-[#3d4350] hidden md:inline">
                   {mission.mission_id} · {Object.keys(agents).length || agents.length} agents · {Object.keys(disputes).length} disputes
                 </span>

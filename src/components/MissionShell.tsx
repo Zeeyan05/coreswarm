@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
 import { LifecycleRail } from './primitives';
 
 export type ViewKey =
@@ -48,9 +47,7 @@ export function MissionShell({
           <div className="flex items-center justify-between h-[60px] gap-4">
             {/* Brand */}
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-8 h-8 rounded-md bg-[#0e1118] border border-[#7dd3fc]/30 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 text-[#7dd3fc]" />
-              </div>
+              <img src="/logo.svg" alt="CoreSwarm" className="w-8 h-8 rounded-md" />
               <div className="leading-none">
                 <div className="flex items-center gap-2">
                   <span className="font-display font-700 font-bold tracking-[0.18em] text-[15px] text-white">CORESWARM</span>

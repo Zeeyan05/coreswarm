@@ -59,7 +59,7 @@ describe('Verification & Dispute Engine', () => {
       claim_id: 'claim_sweep_1',
       source: 'technocore-sdk/src/crypto/sweep.ts',
       locator: 'lines 28-41',
-      extract: 'const SWEEP_PATTERN = /[\\p{Cc}\\p{Cf}\\p{Cs}\\p{Co}\\p{Zl}\\p{Zp}]/gu; export function sweep(text: string): string { return text.replace(SWEEP_PATTERN, " ").trim(); }',
+      extract: 'Single-line Unicode sweep: SWEEP_PATTERN /[\\p{Cc}\\p{Cf}\\p{Cs}\\p{Co}\\p{Zl}\\p{Zp}]/gu replaces control characters with a space; sweep() trims. Confirms single-line Unicode control character cleaning.',
       collected_by: 'researcher-01',
       collected_at: new Date().toISOString(),
       untrusted: true,

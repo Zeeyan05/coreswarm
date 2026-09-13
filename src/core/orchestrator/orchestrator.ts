@@ -276,6 +276,60 @@ export class CoreSwarmOrchestrator {
       );
     }
 
+    // 3+. Post-execution phases run under a salvage guard: a throw in
+    // collect/verify/resolve/synthesize emits a partial report and FAILED
+    // mission instead of an unhandled rejection with no salvageable state.
+    try {
+      return await this.#collectVerifySynthesize(missionId, objective, options, taskResults, completedTaskIds);
+    } catch (err) {
+      const message = (err as Error)?.message ?? String(err);
+      if (this.#currentMission) {
+        const partial: FinalReport = {
+          mission_id: missionId,
+          objective,
+          executive_summary: `Mission aborted during post-execution: ${message}. Partial results preserved below.`,
+          verified_claims: Object.values(this.#currentMission.claims).filter((c) => c.verification_status === 'VERIFIED'),
+          disputes_resolved: Object.values(this.#currentMission.disputes),
+          protocol_risks: [],
+          recommendations: [],
+          unresolved_uncertainties: [`Mission aborted: ${message}`],
+          provenance_summary: {
+            total_evidence: Object.keys(this.#currentMission.evidence_graph).length,
+            total_claims: Object.keys(this.#currentMission.claims).length,
+            total_verifications: Object.values(this.#currentMission.claims).filter((c) => c.verification_status === 'VERIFIED').length,
+            total_disputes: Object.keys(this.#currentMission.disputes).length,
+          },
+          synthesized_at: new Date().toISOString(),
+        };
+        this.#currentMission = { ...this.#currentMission, final_result: partial };
+        try {
+          this.#currentMission = this.missionStateMachine.transition(this.#currentMission, 'FAILED', {
+            actor_id: 'orchestrator',
+            reason: message,
+            data: { final_report: partial },
+          });
+        } catch {
+          // Already terminal; preserve the partial as-is.
+        }
+        this.metrics.endMission();
+        return partial;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Post-execution pipeline: collect → verify → resolve → synthesize.
+   * Called under the salvage guard in runMission.
+   */
+  async #collectVerifySynthesize(
+    missionId: string,
+    objective: string,
+    options: MissionRunOptions | undefined,
+    taskResults: Record<string, TaskResult>,
+    completedTaskIds: Set<string>,
+  ): Promise<FinalReport> {
+    if (!this.#currentMission) throw new Error('No active mission');
     // 3. COLLECT RESULTS & EVIDENCE
     this.#currentMission = this.missionStateMachine.transition(this.#currentMission, 'COLLECTING', {
       actor_id: 'orchestrator',

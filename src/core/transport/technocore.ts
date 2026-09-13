@@ -16,10 +16,13 @@ import { sweep } from '../crypto/sweep';
 import { verifyRoomMessage, verifyEnvelopeSignature } from '../crypto/verify';
 import { CoreSwarmEnvelopeSchema } from '../protocol/validator';
 import { ReplayGuard } from '../protocol/replay-guard';
+import type { NonceCoordinator } from './nonce-coordinator';
 
 export interface TechnocoreTransportConfig {
   readonly baseUrl?: string; // Direct URL (e.g. https://technocore.chat)
   readonly proxyEndpoint?: string; // Proxy URL (e.g. /api/proxy)
+  /** Opt-in multi-instance nonce coordination (see nonce-coordinator.ts). */
+  readonly nonceCoordinator?: NonceCoordinator;
 }
 
 export class TechnocoreTransport implements Transport {
@@ -29,11 +32,13 @@ export class TechnocoreTransport implements Transport {
   readonly #subscribers = new Map<string, Set<EnvelopeHandler>>();
   readonly #abortControllers = new Map<string, AbortController>();
   readonly replayGuard = new ReplayGuard();
+  readonly #nonceCoordinator?: NonceCoordinator;
   #running = true;
 
   constructor(config: TechnocoreTransportConfig = {}) {
     this.#baseUrl = config.baseUrl;
     this.#proxyEndpoint = config.proxyEndpoint ?? (typeof window !== 'undefined' ? '/api/proxy' : undefined);
+    this.#nonceCoordinator = config.nonceCoordinator;
   }
 
   /**
@@ -72,7 +77,19 @@ export class TechnocoreTransport implements Transport {
 
     if (identity) {
       // Authentic Technocore Ed25519 room signing: <room>|<nonce>|<sweptText>
-      const signResult = await identity.signMessage(room, swept);
+      // With multi-instance coordination, reserve the nonce via CAS first so
+      // sibling processes sharing this DID cannot collide.
+      let signResult = await identity.signMessage(room, swept);
+      if (this.#nonceCoordinator) {
+        const reserved = await this.#nonceCoordinator.reserve(room, identity.did, () => identity.nonceManager.next());
+        identity.nonceManager.restore(reserved);
+        signResult = await identity.signMessage(room, swept);
+        // Guard against a local-manager race producing a different nonce than reserved.
+        if (BigInt(signResult.nonce) < BigInt(reserved)) {
+          identity.nonceManager.restore(reserved);
+          signResult = await identity.signMessage(room, swept);
+        }
+      }
       requestBody = {
         did: identity.did,
         sig: signResult.sig,

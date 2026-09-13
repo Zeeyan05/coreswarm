@@ -30,7 +30,7 @@ export function VerifyLedger({ claims, evidenceGraph }: { claims: Record<string,
         right={
           <select
             value={filter} onChange={(e) => setFilter(e.target.value)}
-            className="bg-[#0e1118] border border-[#1c212c] font-mono text-[11px] text-white rounded-md px-2.5 py-1.5 focus:outline-none focus:border-[#a78bfa]/50"
+            className="cs-focusable bg-[#0e1118] border border-[#1c212c] font-mono text-[12px] text-white rounded-lg px-3 py-2 focus:border-[#a78bfa]/50 transition-colors"
           >
             <option value="ALL">All states ({list.length})</option>
             <option value="VERIFIED">Grounded</option>
@@ -45,9 +45,9 @@ export function VerifyLedger({ claims, evidenceGraph }: { claims: Record<string,
 
       {/* Distribution rail */}
       {list.length > 0 && (
-        <div className="cs-panel px-4 py-3 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-[11px]">
+        <div className="cs-panel px-5 py-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px]">
           {Object.entries(counts).map(([s, n]) => (
-            <span key={s} className="flex items-center gap-1.5">
+            <span key={s} className="flex items-center gap-2">
               <StateTag state={s} />
               <span className="text-white font-semibold tabular-nums">×{n}</span>
             </span>
@@ -56,38 +56,38 @@ export function VerifyLedger({ claims, evidenceGraph }: { claims: Record<string,
       )}
 
       {filtered.length === 0 ? (
-        <div className="cs-panel p-12 text-center font-mono text-[11px] text-[#3d4350]">
+        <div className="cs-panel p-14 text-center font-mono text-[12px] text-[#3d4350]">
           {list.length === 0 ? 'No claims yet. Verification begins after execution.' : 'No claims in this state.'}
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {filtered.map((c) => {
+        <div className="space-y-3">
+          {filtered.map((c, fi) => {
             const resolved = c.evidence_refs.map((id) => evidenceGraph[id]);
             const missing = c.evidence_refs.filter((id) => !evidenceGraph[id]);
             return (
-              <div key={c.claim_id} className="cs-panel p-4 cs-rise">
-                <div className="flex flex-wrap items-start justify-between gap-2">
+              <div key={c.claim_id} className="cs-panel cs-panel-interactive p-5 cs-rise" style={{ animationDelay: `${Math.min(fi * 50, 300)}ms` }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="font-mono text-[10px] text-[#3d4350] mb-0.5">
+                    <div className="font-mono text-[11px] text-[#3d4350] mb-1">
                       {c.claim_id} · {c.type} · {c.origin_agent} · {(c.confidence * 100).toFixed(0)}% self-assessed
                     </div>
-                    <p className="text-[13px] text-white leading-snug">{c.statement}</p>
+                    <p className="cs-body text-white">{c.statement}</p>
                   </div>
                   <StateTag state={c.verification_status} />
                 </div>
                 {c.verification_reason && (
-                  <p className="mt-2 font-mono text-[11px] text-[#8b93a5] rounded-md border border-[#1c212c] bg-[#0e1118] p-2.5">
+                  <p className="mt-2.5 font-mono text-[12px] leading-relaxed text-[#8b93a5] rounded-lg border border-[#1c212c] bg-[#0e1118] p-3">
                     {c.verified_by ? `${c.verified_by}: ` : ''}{c.verification_reason}
                   </p>
                 )}
-                <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[10px]">
+                <div className="mt-2.5 flex flex-wrap items-center gap-2 font-mono text-[11px]">
                   {resolved.map((ev, i) =>
                     ev ? (
-                      <span key={ev.evidence_id} title={`${ev.source} ${ev.locator}`} className="px-1.5 py-0.5 rounded border border-[#7dd3fc]/25 bg-[#7dd3fc]/5 text-[#7dd3fc]">
+                      <span key={ev.evidence_id} title={`${ev.source} ${ev.locator}`} className="px-2 py-1 rounded-md border border-[#7dd3fc]/25 bg-[#7dd3fc]/5 text-[#7dd3fc]">
                         {ev.evidence_id}
                       </span>
                     ) : (
-                      <span key={`${c.claim_id}-m-${i}`} className="px-1.5 py-0.5 rounded border border-[#fda4af]/30 bg-[#fda4af]/5 text-[#fda4af]">
+                      <span key={`${c.claim_id}-m-${i}`} className="px-2 py-1 rounded-md border border-[#fda4af]/30 bg-[#fda4af]/5 text-[#fda4af]">
                         {c.evidence_refs[i]} · missing
                       </span>
                     ),

@@ -174,7 +174,7 @@ export class CoreSwarmOrchestrator {
     this.metrics.reset();
     this.metrics.startMission();
 
-    const missionId = `mission_${Date.now()}`;
+    const missionId = `mission_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${Date.now().toString(36).slice(-4)}`;
     const initialMission: Mission = {
       mission_id: missionId,
       objective,

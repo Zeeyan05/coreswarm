@@ -7,7 +7,7 @@ import { Copy, Check } from 'lucide-react';
 
 export function Did({ value, className = '' }: { value: string; className?: string }) {
   const [copied, setCopied] = useState(false);
-  if (!value) return <span className={`font-mono text-[#5d6474] ${className}`}>—</span>;
+  if (!value) return <span className={`font-mono text-[11px] text-[#5d6474] ${className}`}>—</span>;
   const short = value.length > 20 ? `${value.slice(0, 13)}…${value.slice(-6)}` : value;
   return (
     <button
@@ -17,7 +17,7 @@ export function Did({ value, className = '' }: { value: string; className?: stri
         setTimeout(() => setCopied(false), 1500);
       }}
       title={value}
-      className={`group inline-flex items-center gap-1 font-mono text-[#a78bfa] hover:text-[#c4b5fd] transition-colors ${className}`}
+      className={`group inline-flex items-center gap-1 font-mono text-[11px] leading-relaxed text-[#a78bfa] hover:text-[#c4b5fd] transition-colors cs-focusable rounded ${className}`}
     >
       <span className="truncate">{short}</span>
       {copied
@@ -50,7 +50,7 @@ export function StateDot({ state, size = 'md' }: { state: string; size?: 'sm' | 
   const s = (STATE_STYLE[state as SemanticState] ?? STATE_STYLE.IDLE)!;
   const px = size === 'sm' ? 'w-1.5 h-1.5' : size === 'lg' ? 'w-2.5 h-2.5' : 'w-2 h-2';
   return (
-    <span className={`relative inline-flex shrink-0 ${px}`}>
+    <span className={`relative inline-flex shrink-0 ${px}`} aria-hidden>
       {s.ring && (
         <span className={`absolute inline-flex w-full h-full rounded-full ${s.dot} ${s.ring === 'cs-node-ping' ? 'cs-node-ping' : 'cs-alert-blink'}`} />
       )}
@@ -68,7 +68,7 @@ export function StateTag({ state }: { state: string }) {
     state === 'FAILED' || state === 'TIMEOUT' || state === 'CONTRADICTED' ? 'text-[#fda4af] border-[#fda4af]/25 bg-[#fda4af]/5' :
     'text-[#8b93a5] border-[#262c39] bg-[#0e1118]';
   return (
-    <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border text-[10px] font-mono tracking-wide ${color}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border font-mono text-[11px] font-medium tracking-wide leading-none ${color}`}>
       <StateDot state={state} size="sm" />
       {state}
     </span>
@@ -100,31 +100,32 @@ export function LifecycleRail({ status, compact = false }: { status?: string; co
           <React.Fragment key={phase}>
             <div
               role="listitem"
+              aria-current={isActive ? 'step' : undefined}
               title={phase}
-              className={`flex items-center gap-1.5 ${compact ? 'px-1' : 'px-2'} py-1 rounded transition-all ${
+              className={`flex items-center gap-1.5 ${compact ? 'px-1.5' : 'px-2.5'} py-1.5 rounded-md transition-all duration-300 ${
                 isActive
-                  ? 'text-[#7dd3fc]'
+                  ? 'text-[#7dd3fc] bg-[#7dd3fc]/5'
                   : isDone
                     ? 'text-[#5eead4]/80'
                     : 'text-[#3d4350]'
               }`}
             >
-              <span className={`w-1 h-1 rounded-full shrink-0 ${
-                isActive ? 'bg-[#7dd3fc] cs-breathe' : isDone ? 'bg-[#5eead4]/70' : 'bg-[#3d4350]'
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300 ${
+                isActive ? 'bg-[#7dd3fc] cs-breathe scale-125' : isDone ? 'bg-[#5eead4]/70' : 'bg-[#3d4350]'
               }`} />
               {!compact && (
-                <span className={`font-mono text-[10px] tracking-[0.12em] ${isActive ? 'font-semibold' : ''}`}>
+                <span className={`font-mono text-[11px] tracking-[0.1em] ${isActive ? 'font-semibold' : ''}`}>
                   {phase}
                 </span>
               )}
               {compact && isActive && (
-                <span className="font-mono text-[10px] tracking-[0.12em] font-semibold">{phase}</span>
+                <span className="font-mono text-[11px] tracking-[0.1em] font-semibold">{phase}</span>
               )}
             </div>
             {i < LIFECYCLE.length - 1 && (
-              <div className={`h-px flex-1 min-w-[6px] ${i < activeIdx || done ? 'bg-[#5eead4]/30' : 'bg-[#1c212c]'}`} />
+              <div className={`h-px flex-1 min-w-[8px] transition-colors duration-500 ${i < activeIdx || done ? 'bg-[#5eead4]/30' : 'bg-[#1c212c]'}`} />
             )}
-            {isFailed && i === 0 && <span className="font-mono text-[10px] text-[#fda4af] ml-1">{status}</span>}
+            {isFailed && i === 0 && <span className="font-mono text-[11px] text-[#fda4af] ml-1">{status}</span>}
           </React.Fragment>
         );
       })}
@@ -136,8 +137,8 @@ export function LifecycleRail({ status, compact = false }: { status?: string; co
 
 export function GroundedNote({ className = '' }: { className?: string }) {
   return (
-    <p className={`font-mono text-[10px] leading-relaxed text-[#5d6474] ${className}`}>
-      <span className="text-[#5eead4]">VERIFIED</span> = grounded in cited evidence extracts — not mathematical truth.
+    <p className={`font-mono text-[11px] leading-relaxed text-[#5d6474] ${className}`}>
+      <span className="text-[#5eead4] font-semibold">VERIFIED</span> = grounded in cited evidence extracts — not mathematical truth.
     </p>
   );
 }
@@ -152,12 +153,12 @@ export function SectionHead({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="cs-label mb-1">{kicker}</div>
-        <h2 className="font-display text-lg font-600 font-semibold text-white tracking-tight">{title}</h2>
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="cs-label mb-1.5">{kicker}</div>
+        <h2 className="cs-display-sm text-white">{title}</h2>
       </div>
-      {right}
+      {right && <div className="shrink-0">{right}</div>}
     </div>
   );
 }

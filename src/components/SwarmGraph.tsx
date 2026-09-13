@@ -290,7 +290,7 @@ export function SwarmGraph({
         })}
 
         {/* Nodes */}
-        {nodes.map((n) => {
+        {nodes.map((n, ni) => {
           const r = NODE_R[n.kind];
           const fill = nodeFill(n);
           const dim = n.state === 'IDLE' && n.kind !== 'orchestrator';
@@ -302,7 +302,7 @@ export function SwarmGraph({
               opacity={dim && !isH ? 0.55 : 1}
               onMouseEnter={() => setHover(n.id)}
               onMouseLeave={() => setHover(null)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', animation: `cs-fade-in 0.5s ease-out ${Math.min(ni * 30, 500)}ms both` }}
             >
               {(n.state === 'EXECUTING' || n.state === 'VERIFYING') && (
                 <circle r={r + 5} fill="none" stroke={fill} strokeWidth={1} className="cs-node-ping" />
@@ -323,13 +323,13 @@ export function SwarmGraph({
               />
               <circle r={2.2} fill={fill} />
               <text
-                y={n.kind === 'evidence' || n.kind === 'claim' ? r + 11 : r + 14}
+                y={n.kind === 'evidence' || n.kind === 'claim' ? r + 12 : r + 15}
                 textAnchor="middle"
                 fill={isH ? '#e8eaf0' : '#8b93a5'}
-                fontSize={n.kind === 'orchestrator' ? 9 : 8.5}
+                fontSize={n.kind === 'orchestrator' ? 10 : n.kind === 'agent' ? 9.5 : 9}
                 fontWeight={n.kind === 'orchestrator' || n.kind === 'agent' ? 600 : 400}
                 fontFamily="JetBrains Mono, monospace"
-                letterSpacing="0.08em"
+                letterSpacing="0.06em"
               >
                 {n.label}
               </text>
@@ -339,24 +339,24 @@ export function SwarmGraph({
       </svg>
 
       {/* Hover inspector: real values only */}
-      <div className="absolute left-3 bottom-3 min-w-[210px] max-w-[300px] rounded-lg border border-[#262c39] bg-[#0b0d12]/95 px-3 py-2 backdrop-blur">
+      <div className="absolute left-3 bottom-3 min-w-[220px] max-w-[320px] rounded-lg border border-[#262c39] bg-[#0b0d12]/95 px-3.5 py-2.5 backdrop-blur transition-all duration-200">
         {hovered ? (
-          <div className="space-y-0.5">
-            <div className="font-mono text-[11px] font-semibold text-white">{hovered.sub}</div>
-            <div className="font-mono text-[10px] text-[#5d6474]">
+          <div className="space-y-1 cs-fade-in" key={hovered.id}>
+            <div className="font-mono text-[12px] font-semibold text-white leading-snug">{hovered.sub}</div>
+            <div className="font-mono text-[11px] text-[#5d6474]">
               {hovered.kind.toUpperCase()} · <span className="text-[#b8c0cf]">{hovered.state}</span>
             </div>
           </div>
         ) : (
-          <div className="font-mono text-[10px] text-[#5d6474]">
+          <div className="font-mono text-[11px] text-[#5d6474] tabular-nums">
             {nodes.length} nodes · {edges.length} links · {particles.length} in flight
-            <span className="block text-[#3d4350]">hover a node to inspect</span>
+            <span className="block text-[#3d4350] mt-0.5">hover a node to inspect</span>
           </div>
         )}
       </div>
 
       {/* Legend: motion semantics */}
-      <div className="absolute right-3 top-3 flex items-center gap-3 rounded-lg border border-[#1c212c] bg-[#0b0d12]/90 px-2.5 py-1.5 font-mono text-[9px] text-[#5d6474] backdrop-blur">
+      <div className="absolute right-3 top-3 flex items-center gap-3 rounded-lg border border-[#1c212c] bg-[#0b0d12]/90 px-3 py-2 font-mono text-[10px] text-[#5d6474] backdrop-blur">
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc] cs-breathe" />active</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#a78bfa] cs-breathe" />verifying</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#fcd34d] cs-alert-blink" />disputed</span>

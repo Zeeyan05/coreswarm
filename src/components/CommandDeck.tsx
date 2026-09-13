@@ -33,20 +33,20 @@ function LaunchConsole({
   return (
     <div className="cs-panel cs-noise overflow-hidden">
       <div className="cs-grid-bg absolute inset-0 opacity-70" />
-      <div className="relative px-6 py-8 md:px-10 md:py-10 max-w-3xl">
-        <div className="cs-label mb-2">Primary reference mission</div>
-        <h1 className="font-display text-2xl md:text-[32px] font-bold tracking-tight text-white leading-tight">
+      <div className="relative px-6 py-8 md:px-10 md:py-12 max-w-3xl">
+        <div className="cs-label mb-3 cs-fade-in">Primary reference mission</div>
+        <h1 className="cs-display-lg text-white cs-rise">
           Technocore Integration Auditor
         </h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#8b93a5] max-w-xl">
+        <p className="mt-3 cs-body-lg text-[#8b93a5] max-w-xl cs-rise cs-stagger-1">
           Audit this project to verify protocol correctness — Ed25519 DID, single-line
           sweeping, CAS notes, replay protection — identify risks, and produce
           traceable evidence for every conclusion.
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] text-[#5d6474] uppercase">
-            <FlaskConical className="w-3 h-3" /> chaos scenarios
+        <div className="mt-6 flex flex-wrap items-center gap-2 cs-rise cs-stagger-2">
+          <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.14em] text-[#5d6474] uppercase">
+            <FlaskConical className="w-3.5 h-3.5" /> chaos scenarios
           </span>
           {([
             { v: simulateDispute, s: setSimulateDispute, icon: <AlertTriangle className="w-3.5 h-3.5 text-[#fcd34d]" />, label: 'Dispute', hint: 'Inject a contradictory claim for adjudication' },
@@ -55,7 +55,7 @@ function LaunchConsole({
             <label
               key={t.label}
               title={t.hint}
-              className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 font-mono text-[11px] border transition-all ${
+              className={`cs-btn cs-focusable flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-[12px] border ${
                 isRunning ? 'opacity-50 cursor-not-allowed bg-[#0e1118] border-[#1c212c] text-[#5d6474]'
                 : t.v ? 'cursor-pointer bg-[#fcd34d]/5 border-[#fcd34d]/30 text-white'
                 : 'cursor-pointer bg-[#0e1118] border-[#1c212c] text-[#8b93a5] hover:border-[#343b4c]'
@@ -70,11 +70,11 @@ function LaunchConsole({
           ))}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2.5 cs-rise cs-stagger-3">
           <button
             onClick={() => onRun({ simulateDispute, simulateTimeout })}
             disabled={isRunning}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-md font-mono text-[12px] font-semibold tracking-wide transition-all ${
+            className={`cs-btn cs-btn-primary cs-focusable flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-[13px] font-semibold tracking-wide ${
               isRunning
                 ? 'bg-[#131722] text-[#5d6474] border border-[#1c212c] cursor-not-allowed'
                 : 'bg-[#7dd3fc] text-[#060709] hover:bg-[#a5e3ff] active:scale-[0.98]'
@@ -91,7 +91,7 @@ function LaunchConsole({
           <button
             onClick={onReset}
             disabled={isRunning}
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] transition-all disabled:opacity-40"
+            className="cs-btn cs-focusable flex items-center gap-1.5 px-4 py-3 rounded-lg font-mono text-[12px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
           >
             <RotateCcw className="w-3.5 h-3.5" />Reset
           </button>
@@ -115,20 +115,20 @@ function CoverageStrip({ mission, metrics }: { mission: Mission | null; metrics:
     ['retries', `${metrics.retries}`, `fail ${metrics.taskFailures} · t/o ${metrics.timeouts}`],
   ];
   return (
-    <div className="cs-panel px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex items-center gap-2 min-w-[180px] flex-1">
+    <div className="cs-panel px-5 py-4 cs-fade-in">
+      <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+        <div className="flex items-center gap-3 min-w-[200px] flex-1">
           <span className="cs-label shrink-0">Coverage</span>
-          <div className="flex-1 h-1 rounded-full bg-[#131722] overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-[#7dd3fc] to-[#5eead4] transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="flex-1 h-1.5 rounded-full bg-[#131722] overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#7dd3fc] to-[#5eead4] transition-all duration-700" style={{ width: `${pct}%` }} />
           </div>
-          <span className="font-mono text-[12px] font-semibold text-[#5eead4] tabular-nums">{totalClaims ? `${verified}/${totalClaims}` : '—'}</span>
+          <span className="font-mono text-[13px] font-semibold text-[#5eead4] tabular-nums">{totalClaims ? `${verified}/${totalClaims}` : '—'}</span>
         </div>
         {items.map(([k, v, s]) => (
-          <div key={k} className="flex items-baseline gap-1.5 font-mono">
-            <span className="text-[10px] tracking-[0.12em] text-[#5d6474] uppercase">{k}</span>
-            <span className="text-[13px] font-semibold text-white tabular-nums">{v}</span>
-            <span className="text-[10px] text-[#3d4350]">{s}</span>
+          <div key={k} className="flex items-baseline gap-2 font-mono">
+            <span className="text-[11px] tracking-[0.12em] text-[#5d6474] uppercase">{k}</span>
+            <span className="text-[14px] font-semibold text-white tabular-nums">{v}</span>
+            <span className="text-[11px] text-[#3d4350]">{s}</span>
           </div>
         ))}
       </div>
@@ -151,31 +151,30 @@ function TaskStructure({ tasks }: { tasks: Record<string, Task> }) {
 
   if (list.length === 0) {
     return (
-      <div className="cs-panel p-5 text-center">
-        <div className="font-mono text-[11px] text-[#5d6474]">No task structure yet.<br />Launch a mission to decompose the DAG.</div>
+      <div className="cs-panel p-6 text-center">
+        <div className="font-mono text-[12px] leading-relaxed text-[#5d6474]">No task structure yet.<br />Launch a mission to decompose the DAG.</div>
       </div>
     );
   }
 
   return (
-    <div className="cs-panel p-4">
-      <div className="cs-label mb-3">Mission ↓ Task Structure</div>
-      <div className="space-y-4">
+    <div className="cs-panel p-5">
+      <div className="cs-label mb-4">Mission ↓ Task Structure</div>
+      <div className="space-y-5">
         {tiers.map((tier, ti) => (
-          <div key={tier.name}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-1 h-1 rounded-full bg-[#7dd3fc]" />
-              <span className="font-mono text-[10px] tracking-[0.14em] text-[#8b93a5]">{tier.name}</span>
-              {ti < tiers.length - 1 || true ? null : null}
+          <div key={tier.name} className="cs-rise" style={{ animationDelay: `${ti * 80}ms` }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#7dd3fc]" />
+              <span className="font-mono text-[11px] tracking-[0.14em] text-[#8b93a5]">{tier.name}</span>
             </div>
-            <div className="space-y-1.5 border-l border-[#1c212c] ml-0.5 pl-3">
+            <div className="space-y-2 border-l border-[#1c212c] ml-1 pl-3.5">
               {tier.items.map((t) => (
-                <div key={t.task_id} className="group rounded-md border border-[#1c212c] bg-[#0e1118] px-2.5 py-2 hover:border-[#343b4c] transition-colors">
+                <div key={t.task_id} className="group rounded-lg border border-[#1c212c] bg-[#0e1118] px-3 py-2.5 hover:border-[#343b4c] transition-all duration-200">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[11px] font-medium text-white truncate">{t.title}</span>
+                    <span className="font-mono text-[12px] font-medium text-white truncate">{t.title}</span>
                     <StateDot state={t.status === 'COMPLETED' || t.status === 'VERIFIED' ? 'COMPLETED' : t.status === 'EXECUTING' ? 'EXECUTING' : t.status === 'VERIFYING' ? 'VERIFYING' : t.status === 'DISPUTED' ? 'DISPUTED' : t.status === 'FAILED' || t.status === 'TIMEOUT' ? 'FAILED' : 'IDLE'} size="sm" />
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-[#5d6474]">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 font-mono text-[11px] text-[#5d6474]">
                     <span className="text-[#a78bfa]">{t.assigned_agent ?? 'unassigned'}</span>
                     <span>{t.status}</span>
                     {t.attempt > 1 && <span className="text-[#fcd34d]">try {t.attempt}</span>}
@@ -184,12 +183,12 @@ function TaskStructure({ tasks }: { tasks: Record<string, Task> }) {
                 </div>
               ))}
             </div>
-            {ti < tiers.length - 1 && <div className="ml-0.5 pl-3 font-mono text-[10px] text-[#3d4350] py-0.5">↓</div>}
+            {ti < tiers.length - 1 && <div className="ml-1 pl-3.5 font-mono text-[11px] text-[#3d4350] py-1">↓</div>}
           </div>
         ))}
         <div className="flex items-center gap-2 pt-1">
-          <span className="w-1 h-1 rounded-full bg-[#5eead4]" />
-          <span className="font-mono text-[10px] tracking-[0.14em] text-[#5eead4]/80">FINAL SYNTHESIS</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#5eead4]" />
+          <span className="font-mono text-[11px] tracking-[0.14em] text-[#5eead4]/80">FINAL SYNTHESIS</span>
         </div>
       </div>
     </div>
@@ -207,28 +206,29 @@ const EVENT_TONE: Record<string, string> = {
 
 function ProtocolStream({ events }: { events: readonly CoreSwarmEvent[] }) {
   const tail = events.slice(-40).reverse();
+  const newestId = tail[0]?.event_id;
   return (
-    <div className="cs-panel p-4 flex flex-col min-h-[300px]">
-      <div className="flex items-center justify-between mb-3">
+    <div className="cs-panel p-5 flex flex-col min-h-[300px]">
+      <div className="flex items-center justify-between mb-4">
         <span className="cs-label">Live protocol stream</span>
-        <span className="font-mono text-[10px] text-[#3d4350] tabular-nums">{events.length} events</span>
+        <span className="font-mono text-[11px] text-[#3d4350] tabular-nums">{events.length} events</span>
       </div>
-      <div className="cs-scroll flex-1 overflow-y-auto max-h-[520px] space-y-px font-mono text-[11px]">
+      <div className="cs-scroll flex-1 overflow-y-auto max-h-[520px] space-y-0.5 font-mono text-[12px]">
         {tail.length === 0 ? (
-          <div className="py-10 text-center text-[11px] text-[#3d4350]">
+          <div className="py-12 text-center text-[12px] leading-relaxed text-[#3d4350]">
             Awaiting mission.<br />Protocol transactions will stream here.
           </div>
         ) : (
           tail.map((e) => (
-            <div key={e.event_id} className="cs-row-in flex items-start gap-2 px-1.5 py-[5px] rounded hover:bg-[#0e1118]">
-              <span className="text-[#3d4350] tabular-nums shrink-0 text-[10px] pt-px">
+            <div key={e.event_id} className={`flex items-start gap-2.5 px-2 py-1.5 rounded-md hover:bg-[#0e1118] transition-colors ${e.event_id === newestId ? 'cs-live-new' : 'cs-row-in'}`}>
+              <span className="text-[#3d4350] tabular-nums shrink-0 text-[11px] pt-px">
                 {new Date(e.timestamp).toLocaleTimeString('en-GB', { hour12: false })}
               </span>
               <div className="min-w-0">
-                <div className={`font-semibold tracking-wide text-[10.5px] ${EVENT_TONE[e.event_type] ?? 'text-[#b8c0cf]'}`}>
+                <div className={`font-semibold tracking-wide text-[12px] leading-snug ${EVENT_TONE[e.event_type] ?? 'text-[#b8c0cf]'}`}>
                   {e.event_type}
                 </div>
-                <div className="text-[10px] text-[#5d6474] truncate">
+                <div className="text-[11px] text-[#5d6474] truncate">
                   {e.actor_id}{e.task_id ? ` · ${e.task_id}` : ''}
                 </div>
               </div>
@@ -245,45 +245,45 @@ function ProtocolStream({ events }: { events: readonly CoreSwarmEvent[] }) {
 function Synthesis({ report, onGo }: { report: FinalReport; onGo: (v: 'evidence' | 'disputes' | 'replay') => void }) {
   return (
     <div className="cs-panel p-5 md:p-6 space-y-5 cs-rise">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b cs-hairline pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b cs-hairline pb-5">
         <div>
-          <div className="cs-label mb-1">Audit report synthesis</div>
-          <div className="font-display text-base font-semibold text-white">Mission complete — conclusions with provenance</div>
+          <div className="cs-label mb-1.5">Audit report synthesis</div>
+          <div className="cs-display-sm text-white">Mission complete — conclusions with provenance</div>
         </div>
-        <div className="flex items-center gap-2 font-mono text-[10px]">
-          <span className="px-2 py-0.5 rounded border border-[#5eead4]/25 bg-[#5eead4]/5 text-[#5eead4]">{report.verified_claims.length} grounded</span>
-          <span className="px-2 py-0.5 rounded border border-[#fcd34d]/25 bg-[#fcd34d]/5 text-[#fcd34d]">{report.disputes_resolved.length} disputes</span>
+        <div className="flex items-center gap-2 font-mono text-[11px]">
+          <span className="px-2.5 py-1 rounded-md border border-[#5eead4]/25 bg-[#5eead4]/5 text-[#5eead4] font-medium">{report.verified_claims.length} grounded</span>
+          <span className="px-2.5 py-1 rounded-md border border-[#fcd34d]/25 bg-[#fcd34d]/5 text-[#fcd34d] font-medium">{report.disputes_resolved.length} disputes</span>
         </div>
       </div>
-      <p className="text-[13px] leading-relaxed text-[#e8eaf0] rounded-md border border-[#1c212c] bg-[#0e1118] p-4">
+      <p className="cs-body-lg text-[#e8eaf0] rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
         {report.executive_summary}
       </p>
       <GroundedNote />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="rounded-md border border-[#1c212c] bg-[#0e1118] p-4">
-          <div className="font-mono text-[10px] tracking-[0.14em] text-[#fda4af] uppercase mb-2">Protocol risks ({report.protocol_risks.length})</div>
-          <ul className="space-y-1.5 text-[12px] text-[#b8c0cf]">
-            {report.protocol_risks.map((r, i) => <li key={i} className="flex gap-2"><span className="text-[#fda4af]">·</span>{r}</li>)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
+          <div className="font-mono text-[11px] tracking-[0.14em] text-[#fda4af] uppercase mb-3">Protocol risks ({report.protocol_risks.length})</div>
+          <ul className="space-y-2 cs-body text-[#b8c0cf]">
+            {report.protocol_risks.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#fda4af]">·</span><span>{r}</span></li>)}
           </ul>
         </div>
-        <div className="rounded-md border border-[#1c212c] bg-[#0e1118] p-4">
-          <div className="font-mono text-[10px] tracking-[0.14em] text-[#5eead4] uppercase mb-2">Recommendations ({report.recommendations.length})</div>
-          <ul className="space-y-1.5 text-[12px] text-[#b8c0cf]">
-            {report.recommendations.map((r, i) => <li key={i} className="flex gap-2"><span className="text-[#5eead4]">·</span>{r}</li>)}
+        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
+          <div className="font-mono text-[11px] tracking-[0.14em] text-[#5eead4] uppercase mb-3">Recommendations ({report.recommendations.length})</div>
+          <ul className="space-y-2 cs-body text-[#b8c0cf]">
+            {report.recommendations.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#5eead4]">·</span><span>{r}</span></li>)}
           </ul>
         </div>
       </div>
       {report.unresolved_uncertainties.length > 0 && (
-        <div className="rounded-md border border-[#fcd34d]/25 bg-[#fcd34d]/5 p-4">
-          <div className="font-mono text-[10px] tracking-[0.14em] text-[#fcd34d] uppercase mb-2">Unresolved uncertainties</div>
-          <ul className="space-y-1 text-[12px] text-[#b8c0cf]">
-            {report.unresolved_uncertainties.map((u, i) => <li key={i} className="flex gap-2"><span className="text-[#fcd34d]">·</span>{u}</li>)}
+        <div className="rounded-lg border border-[#fcd34d]/25 bg-[#fcd34d]/5 p-5">
+          <div className="font-mono text-[11px] tracking-[0.14em] text-[#fcd34d] uppercase mb-3">Unresolved uncertainties</div>
+          <ul className="space-y-1.5 cs-body text-[#b8c0cf]">
+            {report.unresolved_uncertainties.map((u, i) => <li key={i} className="flex gap-2.5"><span className="text-[#fcd34d]">·</span><span>{u}</span></li>)}
           </ul>
         </div>
       )}
-      <div className="flex flex-wrap gap-4 font-mono text-[11px]">
+      <div className="flex flex-wrap gap-5 font-mono text-[12px]">
         {([['evidence', 'Trace provenance →'], ['disputes', 'Inspect disputes →'], ['replay', 'Replay timeline →']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => onGo(v)} className="text-[#7dd3fc] hover:text-white transition-colors">{l}</button>
+          <button key={v} onClick={() => onGo(v)} className="cs-btn cs-focusable text-[#7dd3fc] hover:text-white">{l}</button>
         ))}
       </div>
     </div>
@@ -325,18 +325,18 @@ function PersistenceControls({
   };
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-2">
       <button
         onClick={doExport} disabled={isRunning}
         title="Download mission as portable JSON (mission + event log)"
-        className="flex items-center gap-1.5 px-3 py-2 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
+        className="cs-btn cs-focusable flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-mono text-[12px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
       >
         <Download className="w-3.5 h-3.5" />Export
       </button>
       <button
         onClick={() => fileRef.current?.click()} disabled={isRunning}
         title="Load a previously exported mission (replay cross-checked)"
-        className="flex items-center gap-1.5 px-3 py-2 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
+        className="cs-btn cs-focusable flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-mono text-[12px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
       >
         <Upload className="w-3.5 h-3.5" />Import
       </button>
@@ -348,7 +348,7 @@ function PersistenceControls({
           e.target.value = '';
         }}
       />
-      {notice && <span className="font-mono text-[10px] text-[#7dd3fc]">{notice}</span>}
+      {notice && <span className="font-mono text-[11px] text-[#7dd3fc] cs-fade-in">{notice}</span>}
     </span>
   );
 }
@@ -403,28 +403,28 @@ export function CommandDeck(props: CommandDeckProps) {
                 missionStatus={mission.status} height={440}
               />
               {/* Inline mission controls during/after run */}
-              <div className="cs-panel px-4 py-3 flex flex-wrap items-center gap-2">
+              <div className="cs-panel px-5 py-4 flex flex-wrap items-center gap-2.5">
                 <button
                   onClick={() => props.onRun({ simulateDispute: props.simulateDispute, simulateTimeout: props.simulateTimeout })}
                   disabled={isRunning}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md font-mono text-[11px] font-semibold transition-all ${
+                  className={`cs-btn cs-btn-primary cs-focusable flex items-center gap-2 px-5 py-2.5 rounded-lg font-mono text-[12px] font-semibold ${
                     isRunning ? 'bg-[#131722] text-[#5d6474] border border-[#1c212c] cursor-not-allowed'
-                    : 'bg-[#7dd3fc] text-[#060709] hover:bg-[#a5e3ff] active:scale-[0.98]'
+                    : 'bg-[#7dd3fc] text-[#060709] hover:bg-[#a5e3ff]'
                   }`}
                 >
                   {isRunning ? 'EXECUTING…' : mission.status === 'COMPLETED' ? 'RUN AGAIN' : 'LAUNCH'}
                 </button>
                 <button
                   onClick={props.onReset} disabled={isRunning}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-md font-mono text-[11px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
+                  className="cs-btn cs-focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg font-mono text-[12px] text-[#8b93a5] hover:text-white border border-[#1c212c] hover:bg-[#131722] disabled:opacity-40"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />Reset
                 </button>
                 <PersistenceControls
                   mission={mission} events={events} isRunning={isRunning} onImport={props.onImport}
                 />
-                <span className="ml-auto font-mono text-[10px] text-[#3d4350] hidden md:inline">
-                  {mission.mission_id} · {Object.keys(agents).length || agents.length} agents · {Object.keys(disputes).length} disputes
+                <span className="ml-auto font-mono text-[11px] text-[#3d4350] hidden md:inline" title={mission.mission_id}>
+                  {mission.mission_id} · {agents.length} agents · {Object.keys(disputes).length} disputes
                 </span>
               </div>
             </div>
@@ -437,13 +437,13 @@ export function CommandDeck(props: CommandDeckProps) {
 
       {/* Agent identities strip */}
       {agents.length > 0 && mission && (
-        <div className="cs-panel px-4 py-3">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="cs-panel px-5 py-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
             {agents.map((a) => (
-              <div key={a.agent_id} className="flex items-center gap-2 font-mono text-[11px]">
+              <div key={a.agent_id} className="flex items-center gap-2.5 font-mono text-[12px]">
                 <StateDot state={a.availability === 'AVAILABLE' ? 'IDLE' : 'ACTIVE'} size="sm" />
                 <span className="text-white font-medium">{a.agent_id}</span>
-                <Did value={a.did} className="text-[10px] max-w-[150px]" />
+                <Did value={a.did} className="max-w-[160px]" />
               </div>
             ))}
           </div>

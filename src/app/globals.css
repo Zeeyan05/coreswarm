@@ -45,20 +45,44 @@
 
 :root {
   color-scheme: dark;
+
+  /* Professional type scale — single source of truth */
+  --cs-display-lg: 30px;
+  --cs-display-md: 22px;
+  --cs-display-sm: 17px;
+  --cs-body-lg: 14px;
+  --cs-body: 13px;
+  --cs-body-sm: 12px;
+  --cs-mono-md: 12px;
+  --cs-mono: 11px;
+  --cs-mono-sm: 10px;
+  --cs-label: 10px;
+
+  --cs-leading-tight: 1.25;
+  --cs-leading-normal: 1.55;
+  --cs-leading-relaxed: 1.7;
+
+  --cs-ease-out: cubic-bezier(0.2, 0.7, 0.25, 1);
+  --cs-ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
 }
 
 html {
   background-color: #060709;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   background-color: #060709;
   color: #e8eaf0;
   font-family: var(--font-sans);
+  font-size: var(--cs-body);
+  line-height: var(--cs-leading-normal);
   min-height: 100vh;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv05', 'ss01';
 }
 
 /* ---- Living Protocol surfaces ---- */
@@ -69,6 +93,15 @@ body {
     linear-gradient(90deg, rgba(125, 211, 252, 0.035) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 100%);
+}
+
+.cs-grid-drift {
+  animation: cs-grid-pan 40s linear infinite;
+}
+
+@keyframes cs-grid-pan {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 28px, 28px 0; }
 }
 
 .cs-noise::after {
@@ -83,14 +116,21 @@ body {
 .cs-panel {
   background: linear-gradient(180deg, #0b0d12 0%, #090b0f 100%);
   border: 1px solid #1c212c;
-  border-radius: 10px;
+  border-radius: 12px;
   position: relative;
+  transition: border-color 0.25s var(--cs-ease-out), transform 0.25s var(--cs-ease-out), box-shadow 0.25s var(--cs-ease-out);
 }
 
 .cs-panel-raised {
   background: linear-gradient(180deg, #0e1118 0%, #0b0d12 100%);
   border: 1px solid #262c39;
-  border-radius: 10px;
+  border-radius: 12px;
+}
+
+.cs-panel-interactive:hover {
+  border-color: #343b4c;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px -12px rgba(0, 0, 0, 0.7);
 }
 
 .cs-inset {
@@ -101,10 +141,12 @@ body {
 
 .cs-label {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: var(--cs-label);
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #5d6474;
+  line-height: 1.4;
 }
 
 .cs-hairline {
@@ -126,7 +168,56 @@ body {
   background: #343b4c;
 }
 
-/* ---- Motion: state as movement ---- */
+/* ---- Professional type utilities ---- */
+
+.cs-display-lg {
+  font-family: var(--font-display);
+  font-size: var(--cs-display-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: var(--cs-leading-tight);
+}
+
+.cs-display-md {
+  font-family: var(--font-display);
+  font-size: var(--cs-display-md);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: var(--cs-leading-tight);
+}
+
+.cs-display-sm {
+  font-family: var(--font-display);
+  font-size: var(--cs-display-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.cs-body-lg {
+  font-size: var(--cs-body-lg);
+  line-height: var(--cs-leading-relaxed);
+}
+
+.cs-body {
+  font-size: var(--cs-body);
+  line-height: var(--cs-leading-normal);
+}
+
+.cs-mono {
+  font-family: var(--font-mono);
+  font-size: var(--cs-mono);
+  line-height: 1.5;
+  font-feature-settings: 'tnum', 'zero';
+}
+
+.cs-mono-sm {
+  font-family: var(--font-mono);
+  font-size: var(--cs-mono-sm);
+  line-height: 1.5;
+}
+
+/* ---- Motion system: purposeful, restrained, performant ---- */
 
 @keyframes cs-dash-drift {
   to { stroke-dashoffset: -24; }
@@ -203,13 +294,82 @@ body {
   animation: cs-breathe 3s ease-in-out infinite;
 }
 
+/* Entrance choreography */
 @keyframes cs-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .cs-rise {
-  animation: cs-rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation: cs-rise 0.5s var(--cs-ease-out) both;
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cs-fade-in {
+  animation: cs-fade-in 0.4s ease-out both;
+}
+
+@keyframes cs-scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.cs-scale-in {
+  animation: cs-scale-in 0.45s var(--cs-ease-out) both;
+}
+
+.cs-stagger-1 { animation-delay: 0.05s; }
+.cs-stagger-2 { animation-delay: 0.1s; }
+.cs-stagger-3 { animation-delay: 0.15s; }
+.cs-stagger-4 { animation-delay: 0.2s; }
+.cs-stagger-5 { animation-delay: 0.28s; }
+.cs-stagger-6 { animation-delay: 0.36s; }
+
+/* Live data shimmer for streaming rows */
+@keyframes cs-live-glow {
+  0% { background-color: rgba(125, 211, 252, 0.06); }
+  100% { background-color: transparent; }
+}
+
+.cs-live-new {
+  animation: cs-live-glow 1.2s ease-out both;
+}
+
+/* Skeleton loading */
+@keyframes cs-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.cs-skeleton {
+  background: linear-gradient(90deg, #0e1118 25%, #171c28 50%, #0e1118 75%);
+  background-size: 200% 100%;
+  animation: cs-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Button micro-interactions */
+.cs-btn {
+  transition: transform 0.15s var(--cs-ease-out), background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.cs-btn:active {
+  transform: scale(0.97);
+}
+.cs-btn-primary {
+  box-shadow: 0 0 0 0 rgba(125, 211, 252, 0);
+}
+.cs-btn-primary:hover {
+  box-shadow: 0 0 24px -6px rgba(125, 211, 252, 0.45);
+}
+
+/* Focus visibility for professionalism + a11y */
+.cs-focusable:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.6);
+  outline-offset: 2px;
 }
 
 /* Timeline + range inputs */
@@ -230,6 +390,10 @@ body {
   border-radius: 50%;
   background: #060709;
   border: 2px solid #7dd3fc;
+  transition: transform 0.15s var(--cs-ease-out);
+}
+.cs-range::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
 }
 .cs-range::-moz-range-thumb {
   width: 10px;
@@ -242,4 +406,15 @@ body {
 ::selection {
   background: rgba(125, 211, 252, 0.2);
   color: #7dd3fc;
+}
+
+/* Respect users who prefer calm interfaces */
+@media (prefers-reduced-motion: reduce) {
+  .cs-edge, .cs-edge-active, .cs-node-ping, .cs-sweep-rotate,
+  .cs-breathe, .cs-grid-drift, .cs-alert-blink, .animate-pulse-subtle {
+    animation: none !important;
+  }
+  .cs-rise, .cs-fade-in, .cs-scale-in, .cs-row-in {
+    animation-duration: 0.01ms !important;
+  }
 }

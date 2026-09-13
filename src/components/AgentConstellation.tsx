@@ -25,55 +25,64 @@ export function AgentConstellation({ agents, tasks }: { agents: AgentMetadata[];
       />
 
       {agents.length === 0 ? (
-        <div className="cs-panel p-12 text-center font-mono text-[11px] text-[#3d4350]">Discovering agents…</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="cs-panel p-5 space-y-3">
+              <div className="cs-skeleton h-9 w-2/3" />
+              <div className="cs-skeleton h-3 w-full" />
+              <div className="cs-skeleton h-3 w-4/5" />
+              <div className="cs-skeleton h-8 w-full" />
+            </div>
+          ))}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {agents.map((a, i) => {
             const mine = forAgent(a.agent_id);
             const active = mine.filter((t) => t.status === 'EXECUTING' || t.status === 'VERIFYING');
             const done = mine.filter((t) => t.status === 'COMPLETED');
             return (
-              <div key={a.agent_id} className="cs-panel p-5 space-y-3 cs-rise" style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-md bg-[#0e1118] border border-[#a78bfa]/30 flex items-center justify-center">
-                      <Cpu className="w-4 h-4 text-[#a78bfa]" />
+              <div key={a.agent_id} className="cs-panel cs-panel-interactive p-5 md:p-6 space-y-4 cs-rise" style={{ animationDelay: `${i * 70}ms` }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-lg bg-[#0e1118] border border-[#a78bfa]/30 flex items-center justify-center shrink-0">
+                      <Cpu className="w-[18px] h-[18px] text-[#a78bfa]" />
                     </div>
-                    <div>
-                      <div className="font-display text-[14px] font-semibold text-white">{a.name}</div>
-                      <div className="font-mono text-[10px] text-[#5d6474]">{a.agent_id}</div>
+                    <div className="min-w-0">
+                      <div className="cs-display-sm text-white truncate">{a.name}</div>
+                      <div className="font-mono text-[11px] text-[#5d6474]">{a.agent_id}</div>
                     </div>
                   </div>
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] text-[#8b93a5] px-2 py-1 rounded-md border border-[#1c212c] bg-[#0e1118]">
+                  <span className="flex items-center gap-1.5 font-mono text-[11px] text-[#8b93a5] px-2.5 py-1.5 rounded-lg border border-[#1c212c] bg-[#0e1118] shrink-0">
                     <StateDot state={a.availability === 'AVAILABLE' ? 'IDLE' : 'ACTIVE'} size="sm" />
                     {a.availability}
                   </span>
                 </div>
 
-                <p className="text-[12px] text-[#8b93a5] leading-relaxed">{a.description}</p>
+                <p className="cs-body text-[#8b93a5]">{a.description}</p>
 
-                <div className="rounded-md border border-[#1c212c] bg-[#0e1118] p-2.5">
-                  <div className="cs-label mb-1">Cryptographic identity</div>
-                  <Did value={a.did} className="text-[11px]" />
+                <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-3">
+                  <div className="cs-label mb-1.5">Cryptographic identity</div>
+                  <Did value={a.did} />
                 </div>
 
                 <div>
-                  <div className="cs-label mb-1.5">Capabilities</div>
+                  <div className="cs-label mb-2">Capabilities</div>
                   <div className="flex flex-wrap gap-1.5">
                     {a.capabilities.map((c) => (
-                      <span key={c} className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-[#1c212c] bg-[#0e1118] text-[#b8c0cf]">{c}</span>
+                      <span key={c} className="font-mono text-[11px] px-2 py-1 rounded-md border border-[#1c212c] bg-[#0e1118] text-[#b8c0cf]">{c}</span>
                     ))}
                   </div>
                 </div>
 
-                <div className="border-t cs-hairline pt-2.5">
-                  <div className="cs-label mb-1.5">Current work ({mine.length})</div>
+                <div className="border-t cs-hairline pt-3.5">
+                  <div className="cs-label mb-2">Current work ({mine.length})</div>
                   {mine.length === 0 ? (
-                    <div className="font-mono text-[10px] text-[#3d4350]">idle — awaiting delegation</div>
+                    <div className="font-mono text-[11px] text-[#3d4350]">idle — awaiting delegation</div>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {mine.map((t) => (
-                        <div key={t.task_id} className="flex items-center justify-between gap-2 font-mono text-[10px]">
+                        <div key={t.task_id} className="flex items-center justify-between gap-2 font-mono text-[11px]">
                           <span className="text-[#b8c0cf] truncate">{t.title}</span>
                           <span className="text-[#5d6474] shrink-0">{t.status}</span>
                         </div>
@@ -81,7 +90,7 @@ export function AgentConstellation({ agents, tasks }: { agents: AgentMetadata[];
                     </div>
                   )}
                   {(active.length > 0 || done.length > 0) && (
-                    <div className="mt-1.5 font-mono text-[10px] text-[#3d4350]">
+                    <div className="mt-2 font-mono text-[11px] text-[#3d4350] tabular-nums">
                       {active.length > 0 && <span className="text-[#7dd3fc]">{active.length} active</span>}
                       {active.length > 0 && done.length > 0 && ' · '}
                       {done.length > 0 && <span className="text-[#5eead4]">{done.length} done</span>}
@@ -89,7 +98,7 @@ export function AgentConstellation({ agents, tasks }: { agents: AgentMetadata[];
                   )}
                 </div>
 
-                <div className="flex items-center justify-between font-mono text-[10px] text-[#3d4350]">
+                <div className="flex items-center justify-between font-mono text-[11px] text-[#3d4350]">
                   <span className="truncate">{a.endpoint}</span>
                   <span className="shrink-0 ml-2">{a.supported_protocol_versions.join(', ')}</span>
                 </div>

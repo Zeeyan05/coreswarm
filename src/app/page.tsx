@@ -89,13 +89,19 @@ export default function CoreSwarmPage() {
   const runStartRef = useRef(0);
 
   // Mission history (#10): last 10 runs in localStorage with export links.
-  const [history, setHistory] = useState<Array<{ mission_id: string; objective: string; status: string; at: string }>>(() => {
+  // Initialized empty for SSR; hydrated client-side to avoid mismatch.
+  const [history, setHistory] = useState<Array<{ mission_id: string; objective: string; status: string; at: string }>>([]);
+
+  useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem('coreswarm-history') ?? '[]') as Array<{ mission_id: string; objective: string; status: string; at: string }>;
+      const raw = localStorage.getItem('coreswarm-history');
+      if (raw) {
+        setHistory(JSON.parse(raw) as Array<{ mission_id: string; objective: string; status: string; at: string }>);
+      }
     } catch {
-      return [];
+      // corrupted storage — start fresh
     }
-  });
+  }, []);
 
   const recordHistory = (m: Mission) => {
     setHistory((prev) => {

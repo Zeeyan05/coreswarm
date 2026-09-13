@@ -167,7 +167,15 @@ async function callGemini(
   }
   if (!res.ok) {
     const retryable = res.status === 429 || res.status === 502 || res.status === 503;
-    return { ok: false, status: res.status, text: '', retryable };
+    // Surface Google's message (invalid key vs disabled API vs unknown model).
+    let detail = '';
+    try {
+      const errBody = (await res.json()) as { error?: { message?: string; status?: string } };
+      if (errBody?.error?.message) detail = `: ${errBody.error.message.slice(0, 200)}`;
+    } catch {
+      // non-JSON error — keep status only
+    }
+    return { ok: false, status: res.status, text: '', retryable, detail } as { ok: boolean; status: number; text: string; retryable: boolean; detail?: string };
   }
   const data = (await res.json()) as GeminiResponse;
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
@@ -316,7 +324,8 @@ export async function POST(request: NextRequest) {
         });
       }
       lastStatus = r.status;
-      lastError = `${provider}/${model} → HTTP ${r.status}`;
+      const detail = (r as { detail?: string }).detail ?? '';
+      lastError = `${provider}/${model} → HTTP ${r.status}${detail}`;
       if (!r.retryable) { providerExhausted = true; break; } // auth/model errors — next provider
       // else: 429/overload → try next model, then next provider
       providerExhausted = true;

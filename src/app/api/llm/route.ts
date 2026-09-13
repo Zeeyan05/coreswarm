@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * - gemini     (GEMINI_API_KEY) — FREE, generous: https://aistudio.google.com/apikey
  * - groq       (GROQ_API_KEY) — FREE, very fast: https://console.groq.com/keys
  * - openrouter (OPENROUTER_API_KEY) — multi-model gateway, free models: https://openrouter.ai/keys
+ * - kintio     (KINTIO_API_KEY) — multi-model gateway, 44 models, 2 FREE
+ *            (kintio-auto, claude-opus-4): https://api.kintio.com
  * - custom     (LLM_API_KEY + LLM_BASE_URL) — ANY OpenAI-compatible multi-model
  *            gateway (OpenRouter, Together, Fireworks, LiteLLM, Ollama tunnel...).
  *            Set LLM_BASE_URL=https://openrouter.ai/api/v1 and paste your key.
@@ -35,6 +37,7 @@ const DEFAULT_MODELS: Record<string, string> = {
   gemini: 'gemini-2.0-flash-lite',
   groq: 'llama-3.1-8b-instant',
   openrouter: 'google/gemini-2.0-flash-exp:free',
+  kintio: 'kintio-auto',
   custom: process.env.LLM_MODEL ?? 'auto',
 };
 
@@ -47,6 +50,8 @@ const DEFAULT_FALLBACKS: Record<string, string[]> = {
     'meta-llama/llama-3.1-8b-instruct:free',
     'mistralai/mistral-7b-instruct:free',
   ],
+  // Free-first: kintio-auto → claude-opus-4 (both free), then paid opt-ins.
+  kintio: ['kintio-auto', 'claude-opus-4'],
   anthropic: [],
   openai: [],
   custom: [],
@@ -261,18 +266,20 @@ export async function POST(request: NextRequest) {
       if (!apiKey) { lastError = 'ANTHROPIC_API_KEY missing'; break; }
       r = await callAnthropic(apiKey, model, prompt, temperature, maxTokens);
     } else {
-      // openai / groq / openrouter / custom — all OpenAI-compatible.
+      // openai / groq / openrouter / kintio / custom — all OpenAI-compatible.
       const keyName = provider === 'openai' ? 'OPENAI_API_KEY'
         : provider === 'groq' ? 'GROQ_API_KEY'
-        : provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'LLM_API_KEY';
+        : provider === 'openrouter' ? 'OPENROUTER_API_KEY'
+        : provider === 'kintio' ? 'KINTIO_API_KEY' : 'LLM_API_KEY';
       const apiKey = process.env[keyName];
       if (!apiKey) { lastError = `${keyName} missing`; break; }
       const base = provider === 'openai' ? 'https://api.openai.com/v1'
         : provider === 'groq' ? 'https://api.groq.com/openai/v1'
         : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
+        : provider === 'kintio' ? 'https://api.kintio.com/v1'
         : (process.env.LLM_BASE_URL ?? '').replace(/\/$/, '');
       if (!base) { lastError = 'LLM_BASE_URL missing for custom provider'; break; }
-      const extra: Record<string, string> = provider === 'openrouter' || provider === 'custom'
+      const extra: Record<string, string> = provider === 'openrouter' || provider === 'custom' || provider === 'kintio'
         ? { 'HTTP-Referer': 'https://coreswarm.vercel.app', 'X-Title': 'CoreSwarm' }
         : {};
       r = await chatCompletions(`${base}/chat/completions`, apiKey, model, prompt, temperature, maxTokens, extra);
@@ -301,6 +308,7 @@ const PROVIDER_KEYS: Record<string, string> = {
   gemini: 'GEMINI_API_KEY',
   groq: 'GROQ_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
+  kintio: 'KINTIO_API_KEY',
   custom: 'LLM_API_KEY',
 };
 
@@ -313,7 +321,7 @@ export async function GET() {
     configured: Boolean(process.env[keyName]),
     model: primary,
     fallbacks: (process.env.LLM_FALLBACK_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-    freeOptions: ['gemini', 'groq', 'openrouter'],
-    multiModelNote: 'Have one key for many models? Use LLM_PROVIDER=openrouter (or custom + LLM_BASE_URL) and set LLM_MODEL + LLM_FALLBACK_MODELS.',
+    freeOptions: ['kintio', 'gemini', 'groq', 'openrouter'],
+    multiModelNote: 'Have one key for many models? Use LLM_PROVIDER=kintio (or openrouter / custom + LLM_BASE_URL) and set LLM_MODEL + LLM_FALLBACK_MODELS.',
   });
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MissionShell, ViewKey } from '@/components/MissionShell';
+import { GuidedTour } from '@/components/GuidedTour';
 import { CommandDeck } from '@/components/CommandDeck';
 import { EvidenceTrace } from '@/components/EvidenceTrace';
 import { DisputeArena } from '@/components/DisputeArena';
@@ -243,6 +244,22 @@ export default function CoreSwarmPage() {
       isRunning={isRunning}
       elapsedMs={isRunning ? elapsedMs : (metrics.missionDurationMs || elapsedMs)}
       disputeCount={metrics.disputeCount}
+      tourButton={
+        <GuidedTour
+          ctx={{
+            view,
+            missionExists: mission !== null,
+            missionCompleted: mission?.status === 'COMPLETED',
+            isRunning,
+            disputeCount: metrics.disputeCount,
+            claimCount: Object.keys(claims).length,
+            eventCount: events.length,
+          }}
+          onNavigate={setView}
+          onLaunch={() => void handleRunMission({ simulateDispute, simulateTimeout })}
+          onReset={handleReset}
+        />
+      }
     >
       {view === 'command' && (
         <CommandDeck

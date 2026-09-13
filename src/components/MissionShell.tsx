@@ -48,6 +48,7 @@ interface MissionShellProps {
   isRunning: boolean;
   elapsedMs: number;
   disputeCount: number;
+  tourButton?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -58,7 +59,7 @@ function fmtElapsed(ms: number): string {
 }
 
 export function MissionShell({
-  view, onView, missionId, missionStatus, isRunning, elapsedMs, disputeCount, children,
+  view, onView, missionId, missionStatus, isRunning, elapsedMs, disputeCount, tourButton, children,
 }: MissionShellProps) {
   return (
     <div className="min-h-screen bg-[#060709] text-[#e8eaf0] flex flex-col relative">
@@ -89,6 +90,7 @@ export function MissionShell({
 
             {/* Live status cluster */}
             <div className="flex items-center gap-2 shrink-0 font-mono text-[12px]">
+              {tourButton}
               <span className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
                 isRunning
                   ? 'border-[#7dd3fc]/40 bg-[#7dd3fc]/5 text-[#7dd3fc]'

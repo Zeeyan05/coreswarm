@@ -1,23 +1,33 @@
-# CoreSwarm E2E (Playwright) — roadmap
+# CoreSwarm E2E (Playwright)
 
-`test/ui-smoke.test.tsx` covers component-level wiring today (jsdom, no browser).
+Browser tests for the stranger-to-confident flow. Mirrors the in-app
+`GuidedTour` (`src/components/GuidedTour.tsx`).
 
-## Full E2E (not yet installed)
+## Run
 
 ```bash
-npm install -D @playwright/test
-npx playwright install chromium
+# Against the dev server already on :3000:
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e
+
+# Or let Playwright start its own server on :3101:
+npm run test:e2e
 ```
 
-Suggested spec (`test/e2e/mission.spec.ts`):
+First run needs browsers: `npx playwright install chromium`.
 
-1. `page.goto('http://localhost:3000')` → assert `LAUNCH AUTONOMOUS AUDIT` visible.
-2. Click launch → wait for `SwarmGraph` `<svg>` to contain ≥ 8 `<g>` nodes.
-3. Assert protocol stream rows appear (`.cs-row-in` count grows).
-4. Assert coverage strip shows `1/1`-style grounded counts after completion.
-5. Click Export → assert download ends with `.coreswarm.json`.
-6. Reset → Import the download → assert mission ID matches.
+## Specs
 
-Keep E2E deterministic: seed `SimulatedLLMProvider({ simulateDispute: false })`
-via a `?e2e=1` query flag (to be added to `page.tsx`) so dispute injection
-doesn't flake assertions.
+`tour.spec.ts` — two tests:
+
+1. **empty room → launch → report → evidence → replay → protocol → agents**
+   Dispute sim OFF for determinism. Asserts the honest empty room
+   (`STANDBY`), mission completion, then walks every view.
+2. **dispute run produces an adjudicated dispute** — dispute sim ON,
+   asserts the arena renders with an `Independent adjudication` block.
+
+## Notes
+
+- The simulated mission finishes in <1s, so `LIVE` is transient — the spec
+  asserts the stable `COMPLETED` end state instead.
+- `test/e2e/**` is excluded from vitest (`vitest.config.ts`).
+- `test/ui-smoke.test.tsx` covers component-level wiring (jsdom, no browser).

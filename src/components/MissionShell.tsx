@@ -1,7 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { LifecycleRail } from './primitives';
+
+/** Scroll-to-top affordance for long views (evidence, protocol, replay). */
+function ScrollTop() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 600);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      title="Back to top"
+      aria-label="Back to top"
+      className="cs-btn cs-focusable cs-scale-in fixed bottom-6 right-6 z-40 w-10 h-10 rounded-full border border-[#7dd3fc]/30 bg-[#0b0d12]/95 backdrop-blur flex items-center justify-center text-[#7dd3fc] hover:bg-[#131722] shadow-[0_8px_30px_-8px_rgba(0,0,0,0.8)]"
+    >
+      <ArrowUp className="w-4 h-4" />
+    </button>
+  );
+}
 
 export type ViewKey =
   | 'command' | 'evidence' | 'disputes' | 'verify'
@@ -41,8 +64,8 @@ export function MissionShell({
     <div className="min-h-screen bg-[#060709] text-[#e8eaf0] flex flex-col relative">
       <div className="cs-grid-bg cs-grid-drift pointer-events-none fixed inset-0" />
 
-      {/* Top command bar */}
-      <header className="relative z-20 border-b border-[#1c212c] bg-[#08090c]/90 backdrop-blur-md cs-fade-in">
+      {/* Top command bar — sticky so nav + live status survive scrolling */}
+      <header className="sticky top-0 z-30 border-b border-[#1c212c] bg-[#08090c]/92 backdrop-blur-md cs-fade-in shadow-[0_8px_30px_-12px_rgba(0,0,0,0.8)]">
         <div className="max-w-[1440px] mx-auto px-4 lg:px-6">
           <div className="flex items-center justify-between min-h-[64px] py-2 gap-4">
             {/* Brand */}
@@ -129,6 +152,7 @@ export function MissionShell({
           <span className="hidden sm:inline">VERIFIED = grounded in cited extracts</span>
         </div>
       </footer>
+      <ScrollTop />
     </div>
   );
 }

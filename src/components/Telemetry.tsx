@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { SectionHead } from './primitives';
+import { SectionHead, Collapse } from './primitives';
 import type { SystemMetrics } from '../core/orchestrator/metrics';
 
 /**
@@ -42,8 +42,9 @@ export function Telemetry({ metrics }: { metrics: SystemMetrics }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className="cs-panel p-5 md:p-6">
+      <Collapse title="Latency & grounding detail" defaultOpen={false}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start pt-1">
+        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5 md:p-6">
           <div className="cs-label mb-4">Task latency · ms</div>
           <div className="space-y-3 font-mono text-[12px]">
             {Object.keys(metrics.taskDurations).length === 0 && (
@@ -63,7 +64,7 @@ export function Telemetry({ metrics }: { metrics: SystemMetrics }) {
           </div>
         </div>
 
-        <div className="cs-panel p-5 md:p-6">
+        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5 md:p-6">
           <div className="cs-label mb-4">Grounding distribution</div>
           <div className="space-y-2.5 font-mono text-[12px]">
             {([
@@ -84,14 +85,14 @@ export function Telemetry({ metrics }: { metrics: SystemMetrics }) {
         </div>
       </div>
 
-      <div className="cs-panel p-5 md:p-6">
+      <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5 md:p-6 mt-4">
         <div className="cs-label mb-4">Per-agent latency</div>
         {agentRows.length === 0 ? (
           <div className="py-6 text-center font-mono text-[12px] text-[#3d4350]">No agent telemetry.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {agentRows.map((r) => (
-              <div key={r.agent} className="rounded-lg bg-[#0e1118] border border-[#1c212c] p-3.5 font-mono text-[12px] hover:border-[#343b4c] transition-colors">
+              <div key={r.agent} className="rounded-lg bg-[#060709] border border-[#1c212c] p-3.5 font-mono text-[12px] hover:border-[#343b4c] transition-colors">
                 <div className="text-white font-semibold truncate">{r.agent}</div>
                 <div className="mt-1.5 flex justify-between text-[#5d6474] tabular-nums">
                   <span>{r.runs} run{r.runs === 1 ? '' : 's'}</span>
@@ -103,6 +104,7 @@ export function Telemetry({ metrics }: { metrics: SystemMetrics }) {
           </div>
         )}
       </div>
+      </Collapse>
     </div>
   );
 }

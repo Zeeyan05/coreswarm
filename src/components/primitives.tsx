@@ -143,6 +143,48 @@ export function GroundedNote({ className = '' }: { className?: string }) {
   );
 }
 
+/* ---------- Collapsible section (tames long scrolls) ---------- */
+
+export function Collapse({
+  title,
+  count,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  count?: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="cs-panel overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="cs-btn cs-focusable w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-[#0e1118]/60"
+      >
+        <span className="flex items-center gap-2.5">
+          <span className={`font-mono text-[12px] text-[#5d6474] transition-transform duration-300 ${open ? 'rotate-90' : ''}`}>▸</span>
+          <span className="font-mono text-[12px] tracking-[0.1em] uppercase text-[#b8c0cf]">{title}</span>
+          {typeof count === 'number' && (
+            <span className="font-mono text-[11px] text-[#3d4350] tabular-nums">({count})</span>
+          )}
+        </span>
+        <span className="font-mono text-[11px] text-[#3d4350]">{open ? 'collapse' : 'expand'}</span>
+      </button>
+      <div
+        className="grid transition-all duration-300 ease-out"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-5 pb-5">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Section heading ---------- */
 
 export function SectionHead({

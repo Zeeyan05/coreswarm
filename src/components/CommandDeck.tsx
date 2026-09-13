@@ -4,7 +4,7 @@ import React, { useRef, useState } from 'react';
 import { Play, RotateCcw, AlertTriangle, Clock, CheckCircle2, FlaskConical, Download, Upload } from 'lucide-react';
 import { exportMission } from '../core/persistence/index';
 import { SwarmGraph } from './SwarmGraph';
-import { Did, StateDot, GroundedNote } from './primitives';
+import { Did, StateDot, GroundedNote, Collapse } from './primitives';
 import type { Mission, FinalReport } from '../core/types/mission';
 import type { Task } from '../core/types/task';
 import type { Claim } from '../core/types/claims';
@@ -259,20 +259,22 @@ function Synthesis({ report, onGo }: { report: FinalReport; onGo: (v: 'evidence'
         {report.executive_summary}
       </p>
       <GroundedNote />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
-          <div className="font-mono text-[11px] tracking-[0.14em] text-[#fda4af] uppercase mb-3">Protocol risks ({report.protocol_risks.length})</div>
-          <ul className="space-y-2 cs-body text-[#b8c0cf]">
-            {report.protocol_risks.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#fda4af]">·</span><span>{r}</span></li>)}
-          </ul>
+      <Collapse title="Risks & recommendations" count={report.protocol_risks.length + report.recommendations.length}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
+            <div className="font-mono text-[11px] tracking-[0.14em] text-[#fda4af] uppercase mb-3">Protocol risks ({report.protocol_risks.length})</div>
+            <ul className="space-y-2 cs-body text-[#b8c0cf]">
+              {report.protocol_risks.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#fda4af]">·</span><span>{r}</span></li>)}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
+            <div className="font-mono text-[11px] tracking-[0.14em] text-[#5eead4] uppercase mb-3">Recommendations ({report.recommendations.length})</div>
+            <ul className="space-y-2 cs-body text-[#b8c0cf]">
+              {report.recommendations.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#5eead4]">·</span><span>{r}</span></li>)}
+            </ul>
+          </div>
         </div>
-        <div className="rounded-lg border border-[#1c212c] bg-[#0e1118] p-5">
-          <div className="font-mono text-[11px] tracking-[0.14em] text-[#5eead4] uppercase mb-3">Recommendations ({report.recommendations.length})</div>
-          <ul className="space-y-2 cs-body text-[#b8c0cf]">
-            {report.recommendations.map((r, i) => <li key={i} className="flex gap-2.5"><span className="text-[#5eead4]">·</span><span>{r}</span></li>)}
-          </ul>
-        </div>
-      </div>
+      </Collapse>
       {report.unresolved_uncertainties.length > 0 && (
         <div className="rounded-lg border border-[#fcd34d]/25 bg-[#fcd34d]/5 p-5">
           <div className="font-mono text-[11px] tracking-[0.14em] text-[#fcd34d] uppercase mb-3">Unresolved uncertainties</div>

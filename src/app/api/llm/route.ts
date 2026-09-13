@@ -38,7 +38,7 @@ const CACHE_TTL_MS = 60_000;
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash-lite',
+  gemini: 'gemini-2.5-flash-lite',
   groq: 'llama-3.1-8b-instant',
   openrouter: 'google/gemini-2.0-flash-exp:free',
   kintio: 'kintio-auto',
@@ -48,7 +48,7 @@ const DEFAULT_MODELS: Record<string, string> = {
 // Fallback chains tried in order on 429 / quota / overload. Cheap + high-limit first.
 const DEFAULT_FALLBACKS: Record<string, string[]> = {
   groq: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'],
-  gemini: ['gemini-2.0-flash-lite', 'gemini-2.0-flash'],
+  gemini: ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
   openrouter: [
     'google/gemini-2.0-flash-exp:free',
     'meta-llama/llama-3.1-8b-instruct:free',

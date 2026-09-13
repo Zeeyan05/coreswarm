@@ -18,6 +18,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * Exhaustion protection (built-in):
  * - Model fallback chain: LLM_FALLBACK_MODELS="model-a,model-b" — on 429/quota
  *   the gateway tries the next model automatically instead of failing.
+ * - Provider alternates: LLM_FALLBACK_PROVIDERS="gemini,groq" — when the whole
+ *   primary provider is down, rate-limited, or unconfigured, the gateway fails
+ *   over to the next provider that has a key. Per-provider model override:
+ *   LLM_MODEL_GEMINI, LLM_MODEL_GROQ, ... (else each provider's default).
  * - Sensible free defaults picked for HIGH rate limits (8b instant > 70b).
  * - 60s response cache for identical prompts (decomposer/verifier repeat work).
  * - Caps: max 8000 tokens, prompt max 24k chars, temperature clamped 0..1.
@@ -230,74 +234,103 @@ export async function POST(request: NextRequest) {
     ? Math.min(8000, Math.max(64, Math.floor(body.maxTokens)))
     : DEFAULT_MAX_TOKENS;
 
-  const provider = (process.env.LLM_PROVIDER ?? 'anthropic').toLowerCase();
+  const primaryProvider = (process.env.LLM_PROVIDER ?? 'anthropic').toLowerCase();
   const prompt = body.prompt;
   const requestedModel = typeof body.model === 'string' && body.model.length > 0 ? body.model : undefined;
 
-  // Build model chain: requested → primary → fallbacks (deduped).
-  const primary = requestedModel ?? process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? DEFAULT_MODELS.anthropic!;
-  const envFallbacks = (process.env.LLM_FALLBACK_MODELS ?? '')
+  // Provider chain: primary + alternates (deduped). Alternates only engage
+  // when the primary's whole chain is exhausted or its key is missing.
+  const alternateProviders = (process.env.LLM_FALLBACK_PROVIDERS ?? '')
     .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const chain = [primary, ...envFallbacks, ...(DEFAULT_FALLBACKS[provider] ?? [])].filter(
-    (m, i, arr) => m && arr.indexOf(m) === i,
-  );
+    .map((s) => s.trim().toLowerCase())
+    .filter((p) => p && p !== primaryProvider && PROVIDER_KEYS[p]);
+  const providerChain = [primaryProvider, ...alternateProviders];
 
   // Cache check on primary (fallbacks bypass cache to stay fresh).
-  const key = cacheKey(provider, primary, prompt);
+  const primaryModel = requestedModel ?? process.env.LLM_MODEL ?? DEFAULT_MODELS[primaryProvider] ?? DEFAULT_MODELS.anthropic!;
+  const key = cacheKey(primaryProvider, primaryModel, prompt);
   const cached = cacheGet(key);
   if (cached && !requestedModel) {
-    return NextResponse.json({ text: cached, provider, model: primary, cached: true });
+    return NextResponse.json({ text: cached, provider: primaryProvider, model: primaryModel, cached: true });
   }
 
   let lastStatus = 503;
   let lastError = 'LLM not configured';
+  const tried: string[] = [];
 
-  for (const model of chain) {
-    let r: { ok: boolean; status: number; text: string; retryable: boolean };
+  for (const provider of providerChain) {
+    // Per-provider model: requested (primary only) → LLM_MODEL_<PROVIDER> →
+    // LLM_MODEL (primary only) → provider default.
+    const envModelVar = `LLM_MODEL_${provider.toUpperCase()}`;
+    const first = provider === primaryProvider
+      ? (requestedModel ?? process.env[envModelVar] ?? process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? DEFAULT_MODELS.anthropic!)
+      : (process.env[envModelVar] ?? DEFAULT_MODELS[provider] ?? DEFAULT_MODELS.anthropic!);
+    const envFallbacks = provider === primaryProvider
+      ? (process.env.LLM_FALLBACK_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+    const chain = [first, ...envFallbacks, ...(DEFAULT_FALLBACKS[provider] ?? [])].filter(
+      (m, i, arr) => m && arr.indexOf(m) === i,
+    );
 
-    if (provider === 'gemini') {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) { lastError = 'GEMINI_API_KEY missing'; break; }
-      r = await callGemini(apiKey, model, prompt, temperature, maxTokens);
-    } else if (provider === 'anthropic') {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) { lastError = 'ANTHROPIC_API_KEY missing'; break; }
-      r = await callAnthropic(apiKey, model, prompt, temperature, maxTokens);
-    } else {
-      // openai / groq / openrouter / kintio / custom — all OpenAI-compatible.
-      const keyName = provider === 'openai' ? 'OPENAI_API_KEY'
-        : provider === 'groq' ? 'GROQ_API_KEY'
-        : provider === 'openrouter' ? 'OPENROUTER_API_KEY'
-        : provider === 'kintio' ? 'KINTIO_API_KEY' : 'LLM_API_KEY';
-      const apiKey = process.env[keyName];
-      if (!apiKey) { lastError = `${keyName} missing`; break; }
-      const base = provider === 'openai' ? 'https://api.openai.com/v1'
-        : provider === 'groq' ? 'https://api.groq.com/openai/v1'
-        : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
-        : provider === 'kintio' ? 'https://api.kintio.com/v1'
-        : (process.env.LLM_BASE_URL ?? '').replace(/\/$/, '');
-      if (!base) { lastError = 'LLM_BASE_URL missing for custom provider'; break; }
-      const extra: Record<string, string> = provider === 'openrouter' || provider === 'custom' || provider === 'kintio'
-        ? { 'HTTP-Referer': 'https://coreswarm.vercel.app', 'X-Title': 'CoreSwarm' }
-        : {};
-      r = await chatCompletions(`${base}/chat/completions`, apiKey, model, prompt, temperature, maxTokens, extra);
+    let providerExhausted = false;
+
+    for (const model of chain) {
+      tried.push(`${provider}/${model}`);
+      let r: { ok: boolean; status: number; text: string; retryable: boolean };
+
+      if (provider === 'gemini') {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) { lastError = 'GEMINI_API_KEY missing'; providerExhausted = true; break; }
+        r = await callGemini(apiKey, model, prompt, temperature, maxTokens);
+      } else if (provider === 'anthropic') {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) { lastError = 'ANTHROPIC_API_KEY missing'; providerExhausted = true; break; }
+        r = await callAnthropic(apiKey, model, prompt, temperature, maxTokens);
+      } else {
+        // openai / groq / openrouter / kintio / custom — all OpenAI-compatible.
+        const keyName = provider === 'openai' ? 'OPENAI_API_KEY'
+          : provider === 'groq' ? 'GROQ_API_KEY'
+          : provider === 'openrouter' ? 'OPENROUTER_API_KEY'
+          : provider === 'kintio' ? 'KINTIO_API_KEY' : 'LLM_API_KEY';
+        const apiKey = process.env[keyName];
+        if (!apiKey) { lastError = `${keyName} missing`; providerExhausted = true; break; }
+        const base = provider === 'openai' ? 'https://api.openai.com/v1'
+          : provider === 'groq' ? 'https://api.groq.com/openai/v1'
+          : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
+          : provider === 'kintio' ? 'https://api.kintio.com/v1'
+          : (process.env.LLM_BASE_URL ?? '').replace(/\/$/, '');
+        if (!base) { lastError = 'LLM_BASE_URL missing for custom provider'; providerExhausted = true; break; }
+        const extra: Record<string, string> = provider === 'openrouter' || provider === 'custom' || provider === 'kintio'
+          ? { 'HTTP-Referer': 'https://coreswarm.vercel.app', 'X-Title': 'CoreSwarm' }
+          : {};
+        r = await chatCompletions(`${base}/chat/completions`, apiKey, model, prompt, temperature, maxTokens, extra);
+      }
+
+      if (r.ok && r.text) {
+        if (provider === primaryProvider && model === primaryModel) cacheSet(key, r.text);
+        return NextResponse.json({
+          text: r.text,
+          provider,
+          model,
+          failover: provider !== primaryProvider ? { from: primaryProvider, tried } : undefined,
+        });
+      }
+      lastStatus = r.status;
+      lastError = `${provider}/${model} → HTTP ${r.status}`;
+      if (!r.retryable) { providerExhausted = true; break; } // auth/model errors — next provider
+      // else: 429/overload → try next model, then next provider
+      providerExhausted = true;
     }
 
-    if (r.ok && r.text) {
-      if (model === primary) cacheSet(key, r.text);
-      return NextResponse.json({ text: r.text, provider, model });
-    }
-    lastStatus = r.status;
-    lastError = `${provider}/${model} → HTTP ${r.status}`;
-    if (!r.retryable) break; // auth/model errors — don't burn the chain
-    // else: 429/overload → try next model in chain
+    // Fall through to the next provider regardless of why this one failed
+    // (missing key, auth error, or full chain exhausted) — alternates exist
+    // precisely for this. Loop continues.
+    void providerExhausted;
   }
 
   const status = lastStatus === 429 ? 429 : 502;
   return NextResponse.json(
-    { error: `All models exhausted. Last: ${lastError}. Add LLM_FALLBACK_MODELS or switch provider.` },
+    { error: `All providers exhausted (tried: ${tried.join(', ') || 'none — no keys set'}). Last: ${lastError}.` },
     { status },
   );
 }
@@ -316,12 +349,22 @@ export async function GET() {
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic').toLowerCase();
   const keyName = PROVIDER_KEYS[provider] ?? 'LLM_API_KEY';
   const primary = process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? null;
+  // Report every provider's key status so alternates are visible at a glance.
+  const providers: Record<string, { configured: boolean; model: string | null }> = {};
+  for (const [p, k] of Object.entries(PROVIDER_KEYS)) {
+    providers[p] = {
+      configured: Boolean(process.env[k]),
+      model: process.env[`LLM_MODEL_${p.toUpperCase()}`] ?? (p === provider ? primary : (DEFAULT_MODELS[p] ?? null)),
+    };
+  }
   return NextResponse.json({
     provider,
     configured: Boolean(process.env[keyName]),
     model: primary,
     fallbacks: (process.env.LLM_FALLBACK_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    fallbackProviders: (process.env.LLM_FALLBACK_PROVIDERS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    providers,
     freeOptions: ['kintio', 'gemini', 'groq', 'openrouter'],
-    multiModelNote: 'Have one key for many models? Use LLM_PROVIDER=kintio (or openrouter / custom + LLM_BASE_URL) and set LLM_MODEL + LLM_FALLBACK_MODELS.',
+    multiModelNote: 'Have one key for many models? Use LLM_PROVIDER=kintio (or openrouter / custom + LLM_BASE_URL) and set LLM_MODEL + LLM_FALLBACK_MODELS. Add LLM_FALLBACK_PROVIDERS="gemini,groq" for cross-provider failover.',
   });
 }

@@ -3,26 +3,53 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * Server-side LLM gateway. API keys never reach the browser.
  *
- * Providers (chosen by LLM_PROVIDER env):
- * - anthropic  (ANTHROPIC_API_KEY) — paid, default
- * - openai     (OPENAI_API_KEY) — paid
- * - gemini     (GEMINI_API_KEY) — FREE tier, generous, no card: https://aistudio.google.com/apikey
- * - groq       (GROQ_API_KEY) — FREE tier, very fast: https://console.groq.com/keys
- * - openrouter (OPENROUTER_API_KEY) — free models available: https://openrouter.ai/keys
+ * Providers (LLM_PROVIDER):
+ * - anthropic  (ANTHROPIC_API_KEY) — paid, high limits
+ * - openai     (OPENAI_API_KEY) — paid, high limits
+ * - gemini     (GEMINI_API_KEY) — FREE, generous: https://aistudio.google.com/apikey
+ * - groq       (GROQ_API_KEY) — FREE, very fast: https://console.groq.com/keys
+ * - openrouter (OPENROUTER_API_KEY) — multi-model gateway, free models: https://openrouter.ai/keys
+ * - custom     (LLM_API_KEY + LLM_BASE_URL) — ANY OpenAI-compatible multi-model
+ *            gateway (OpenRouter, Together, Fireworks, LiteLLM, Ollama tunnel...).
+ *            Set LLM_BASE_URL=https://openrouter.ai/api/v1 and paste your key.
  *
- * Optional: LLM_MODEL overrides the default model per provider.
+ * Exhaustion protection (built-in):
+ * - Model fallback chain: LLM_FALLBACK_MODELS="model-a,model-b" — on 429/quota
+ *   the gateway tries the next model automatically instead of failing.
+ * - Sensible free defaults picked for HIGH rate limits (8b instant > 70b).
+ * - 60s response cache for identical prompts (decomposer/verifier repeat work).
+ * - Caps: max 8000 tokens, prompt max 24k chars, temperature clamped 0..1.
+ *
  * POST { prompt, model?, temperature?, maxTokens? } → { text, provider, model }
  */
 
 const MAX_PROMPT_CHARS = 24_000;
 const DEFAULT_MAX_TOKENS = 2000;
+const CACHE_TTL_MS = 60_000;
 
+// Primary defaults chosen for EXHAUSTION RESISTANCE (high free-tier limits),
+// not raw capability. Override with LLM_MODEL if you need bigger models.
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
-  groq: 'llama-3.3-70b-versatile',
-  openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  gemini: 'gemini-2.0-flash-lite',
+  groq: 'llama-3.1-8b-instant',
+  openrouter: 'google/gemini-2.0-flash-exp:free',
+  custom: process.env.LLM_MODEL ?? 'auto',
+};
+
+// Fallback chains tried in order on 429 / quota / overload. Cheap + high-limit first.
+const DEFAULT_FALLBACKS: Record<string, string[]> = {
+  groq: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'],
+  gemini: ['gemini-2.0-flash-lite', 'gemini-2.0-flash'],
+  openrouter: [
+    'google/gemini-2.0-flash-exp:free',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-7b-instruct:free',
+  ],
+  anthropic: [],
+  openai: [],
+  custom: [],
 };
 
 interface AnthropicResponse {
@@ -31,13 +58,42 @@ interface AnthropicResponse {
 
 interface ChatCompletionsResponse {
   choices?: Array<{ message?: { content?: string } }>;
+  error?: { message?: string; code?: string };
 }
 
 interface GeminiResponse {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
 }
 
-/** Shared OpenAI-compatible chat-completions call (openai / groq / openrouter). */
+// Tiny in-memory cache: identical prompt+model within 60s returns cached text.
+// This alone prevents most exhaustion (missions repeat verifier prompts).
+const cache = new Map<string, { text: string; expires: number }>();
+
+function cacheKey(provider: string, model: string, prompt: string): string {
+  let h = 0;
+  const s = `${provider}|${model}|${prompt}`;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return `${h}:${s.length}`;
+}
+
+function cacheGet(key: string): string | null {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expires) {
+    cache.delete(key);
+    return null;
+  }
+  return hit.text;
+}
+
+function cacheSet(key: string, text: string): void {
+  if (cache.size > 500) cache.clear();
+  cache.set(key, { text, expires: Date.now() + CACHE_TTL_MS });
+}
+
+/** Shared OpenAI-compatible chat-completions call. Returns status for fallback logic. */
 async function chatCompletions(
   url: string,
   key: string,
@@ -46,20 +102,105 @@ async function chatCompletions(
   temperature: number,
   maxTokens: number,
   extraHeaders: Record<string, string> = {},
-): Promise<{ ok: boolean; status: number; text: string }> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...extraHeaders },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  if (!res.ok) return { ok: false, status: res.status, text: '' };
-  const data = (await res.json()) as ChatCompletionsResponse;
-  return { ok: true, status: 200, text: data.choices?.[0]?.message?.content ?? '' };
+): Promise<{ ok: boolean; status: number; text: string; retryable: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...extraHeaders },
+      body: JSON.stringify({
+        model,
+        temperature,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+  } catch {
+    return { ok: false, status: 502, text: '', retryable: true };
+  }
+  if (!res.ok) {
+    // 429 rate-limit, 502/503 overload → try next model. 401/403/404 → don't bother.
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 529;
+    return { ok: false, status: res.status, text: '', retryable };
+  }
+  let data: ChatCompletionsResponse;
+  try {
+    data = (await res.json()) as ChatCompletionsResponse;
+  } catch {
+    return { ok: false, status: 502, text: '', retryable: true };
+  }
+  const text = data.choices?.[0]?.message?.content ?? '';
+  return { ok: true, status: 200, text, retryable: false };
+}
+
+async function callGemini(
+  key: string,
+  model: string,
+  prompt: string,
+  temperature: number,
+  maxTokens: number,
+): Promise<{ ok: boolean; status: number; text: string; retryable: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature, maxOutputTokens: maxTokens },
+        }),
+      },
+    );
+  } catch {
+    return { ok: false, status: 502, text: '', retryable: true };
+  }
+  if (!res.ok) {
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503;
+    return { ok: false, status: res.status, text: '', retryable };
+  }
+  const data = (await res.json()) as GeminiResponse;
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+  return { ok: true, status: 200, text, retryable: false };
+}
+
+async function callAnthropic(
+  key: string,
+  model: string,
+  prompt: string,
+  temperature: number,
+  maxTokens: number,
+): Promise<{ ok: boolean; status: number; text: string; retryable: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        temperature,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+  } catch {
+    return { ok: false, status: 502, text: '', retryable: true };
+  }
+  if (!res.ok) {
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 529;
+    return { ok: false, status: res.status, text: '', retryable };
+  }
+  const data = (await res.json()) as AnthropicResponse;
+  const text = (data.content ?? [])
+    .filter((b) => b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('');
+  return { ok: true, status: 200, text, retryable: false };
 }
 
 export async function POST(request: NextRequest) {
@@ -85,91 +226,73 @@ export async function POST(request: NextRequest) {
     : DEFAULT_MAX_TOKENS;
 
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic').toLowerCase();
-  const modelOverride = typeof body.model === 'string' && body.model.length > 0 ? body.model : undefined;
-  const model = modelOverride ?? process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? DEFAULT_MODELS.anthropic!;
   const prompt = body.prompt;
+  const requestedModel = typeof body.model === 'string' && body.model.length > 0 ? body.model : undefined;
 
-  try {
-    // ---- OpenAI-compatible providers ----
-    if (provider === 'openai' || provider === 'groq' || provider === 'openrouter') {
-      const envKey = provider === 'openai' ? 'OPENAI_API_KEY' : provider === 'groq' ? 'GROQ_API_KEY' : 'OPENROUTER_API_KEY';
-      const key = process.env[envKey];
-      if (!key) {
-        return NextResponse.json({ error: `LLM not configured (${envKey} missing)` }, { status: 503 });
-      }
-      const url = provider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : provider === 'groq'
-          ? 'https://api.groq.com/openai/v1/chat/completions'
-          : 'https://openrouter.ai/api/v1/chat/completions';
-      const extra: Record<string, string> = provider === 'openrouter'
+  // Build model chain: requested → primary → fallbacks (deduped).
+  const primary = requestedModel ?? process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? DEFAULT_MODELS.anthropic!;
+  const envFallbacks = (process.env.LLM_FALLBACK_MODELS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const chain = [primary, ...envFallbacks, ...(DEFAULT_FALLBACKS[provider] ?? [])].filter(
+    (m, i, arr) => m && arr.indexOf(m) === i,
+  );
+
+  // Cache check on primary (fallbacks bypass cache to stay fresh).
+  const key = cacheKey(provider, primary, prompt);
+  const cached = cacheGet(key);
+  if (cached && !requestedModel) {
+    return NextResponse.json({ text: cached, provider, model: primary, cached: true });
+  }
+
+  let lastStatus = 503;
+  let lastError = 'LLM not configured';
+
+  for (const model of chain) {
+    let r: { ok: boolean; status: number; text: string; retryable: boolean };
+
+    if (provider === 'gemini') {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) { lastError = 'GEMINI_API_KEY missing'; break; }
+      r = await callGemini(apiKey, model, prompt, temperature, maxTokens);
+    } else if (provider === 'anthropic') {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) { lastError = 'ANTHROPIC_API_KEY missing'; break; }
+      r = await callAnthropic(apiKey, model, prompt, temperature, maxTokens);
+    } else {
+      // openai / groq / openrouter / custom — all OpenAI-compatible.
+      const keyName = provider === 'openai' ? 'OPENAI_API_KEY'
+        : provider === 'groq' ? 'GROQ_API_KEY'
+        : provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'LLM_API_KEY';
+      const apiKey = process.env[keyName];
+      if (!apiKey) { lastError = `${keyName} missing`; break; }
+      const base = provider === 'openai' ? 'https://api.openai.com/v1'
+        : provider === 'groq' ? 'https://api.groq.com/openai/v1'
+        : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
+        : (process.env.LLM_BASE_URL ?? '').replace(/\/$/, '');
+      if (!base) { lastError = 'LLM_BASE_URL missing for custom provider'; break; }
+      const extra: Record<string, string> = provider === 'openrouter' || provider === 'custom'
         ? { 'HTTP-Referer': 'https://coreswarm.vercel.app', 'X-Title': 'CoreSwarm' }
         : {};
-      const r = await chatCompletions(url, key, model, prompt, temperature, maxTokens, extra);
-      if (!r.ok) return NextResponse.json({ error: `${provider} error (${r.status})` }, { status: 502 });
-      if (!r.text) return NextResponse.json({ error: 'Empty model response' }, { status: 502 });
+      r = await chatCompletions(`${base}/chat/completions`, apiKey, model, prompt, temperature, maxTokens, extra);
+    }
+
+    if (r.ok && r.text) {
+      if (model === primary) cacheSet(key, r.text);
       return NextResponse.json({ text: r.text, provider, model });
     }
-
-    // ---- Gemini (free tier) ----
-    if (provider === 'gemini') {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) {
-        return NextResponse.json({ error: 'LLM not configured (GEMINI_API_KEY missing)' }, { status: 503 });
-      }
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature, maxOutputTokens: maxTokens },
-          }),
-        },
-      );
-      if (!res.ok) return NextResponse.json({ error: `Gemini error (${res.status})` }, { status: 502 });
-      const data = (await res.json()) as GeminiResponse;
-      const text = (data.candidates?.[0]?.content?.parts ?? [])
-        .map((p) => p.text ?? '')
-        .join('');
-      if (!text) return NextResponse.json({ error: 'Empty model response' }, { status: 502 });
-      return NextResponse.json({ text, provider: 'gemini', model });
-    }
-
-    // ---- Anthropic (default) ----
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) return NextResponse.json({ error: 'LLM not configured (ANTHROPIC_API_KEY missing)' }, { status: 503 });
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!res.ok) {
-      return NextResponse.json({ error: `Anthropic error (${res.status})` }, { status: 502 });
-    }
-    const data = (await res.json()) as AnthropicResponse;
-    const text = (data.content ?? [])
-      .filter((b) => b.type === 'text' && typeof b.text === 'string')
-      .map((b) => b.text as string)
-      .join('');
-    if (!text) return NextResponse.json({ error: 'Empty model response' }, { status: 502 });
-    return NextResponse.json({ text, provider: 'anthropic', model });
-  } catch (err) {
-    return NextResponse.json(
-      { error: `LLM gateway failure: ${(err as Error)?.message ?? String(err)}` },
-      { status: 502 },
-    );
+    lastStatus = r.status;
+    lastError = `${provider}/${model} → HTTP ${r.status}`;
+    if (!r.retryable) break; // auth/model errors — don't burn the chain
+    // else: 429/overload → try next model in chain
   }
+
+  const status = lastStatus === 429 ? 429 : 502;
+  return NextResponse.json(
+    { error: `All models exhausted. Last: ${lastError}. Add LLM_FALLBACK_MODELS or switch provider.` },
+    { status },
+  );
 }
 
 const PROVIDER_KEYS: Record<string, string> = {
@@ -178,15 +301,19 @@ const PROVIDER_KEYS: Record<string, string> = {
   gemini: 'GEMINI_API_KEY',
   groq: 'GROQ_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
+  custom: 'LLM_API_KEY',
 };
 
 export async function GET() {
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic').toLowerCase();
-  const keyName = PROVIDER_KEYS[provider] ?? 'ANTHROPIC_API_KEY';
+  const keyName = PROVIDER_KEYS[provider] ?? 'LLM_API_KEY';
+  const primary = process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? null;
   return NextResponse.json({
     provider,
     configured: Boolean(process.env[keyName]),
-    model: process.env.LLM_MODEL ?? DEFAULT_MODELS[provider] ?? null,
+    model: primary,
+    fallbacks: (process.env.LLM_FALLBACK_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     freeOptions: ['gemini', 'groq', 'openrouter'],
+    multiModelNote: 'Have one key for many models? Use LLM_PROVIDER=openrouter (or custom + LLM_BASE_URL) and set LLM_MODEL + LLM_FALLBACK_MODELS.',
   });
 }

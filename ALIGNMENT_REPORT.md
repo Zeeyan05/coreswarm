@@ -1,5 +1,5 @@
 # CoreSwarm — Plan Alignment & Build Report
-**Date:** 2026-09-13 (updated: full audit A–F completed same day)
+**Date:** 2026-09-13 (updated: full audit A–F completed; UI finished; LLM gateway + Kintio live; final evidence 2026-09-13 ~20:35 UTC)
 **Project:** coreswarm v0.1.0 — Reference Implementation for Autonomous, Verifiable Multi-Agent Coordination over Technocore
 **Plan under review:**
 ```
@@ -296,7 +296,45 @@ Full "Living Protocol" redesign. Backend untouched (audited source of truth).
 - `test/audit-regressions.test.ts` — 13 regression tests (7 verification attacks, 2 security wiring, 4 persistence/nonce/generic-mission)
 
 ### Remaining known limitations (not blockers)
-1. No semantic entailment — VERIFIED means grounded, not proven true. Documented in code.
-2. No outer mission try/catch for collect/verify/synthesize phases.
-3. Full multi-node nonce KV coordination (`/kv/room-nonce/`) still future work.
-4. TCLK absent by design (per plan: optional/future).
+1. Lexical (not deep-semantic) entailment — VERIFIED means grounded in supporting extracts, not proven true. LLM hook available for hard cases. Documented in code.
+2. Full multi-node nonce KV coordination: `NonceCoordinator` (CAS) implemented + wired opt-in; live mesh multi-instance soak test still future work.
+3. TCLK absent by design (per plan: optional/future).
+
+---
+
+## 12. Final Evidence for FLOP/Technocore Submission (2026-09-13 ~20:35 UTC)
+
+### 1. Final build/audit results (fresh run, this session)
+```
+npm run typecheck → clean (0 errors)
+npm test          → 10 files, 44/44 tests pass
+npm run build     → success (routes: /, /_not-found, /api/llm, /api/proxy)
+```
+Breakdown: replay 1, state-machine 2, dag 3, verification 2, protocol 3, audit-regressions 18 (7 verification-attack + 2 security-wiring + 4 persistence/nonce/generic-mission + 2 entailment + 2 decomposer + 1 nonce-coordinator), proof-scenarios 7, auditor-mission 1, technocore-live 2 (incl. live signed round-trip, 605ms this run), ui-smoke 5.
+UI work introduced `test/ui-smoke.test.tsx` (5 DOM tests: SwarmGraph, VerifyLedger ×2, DisputeArena, LifecycleRail) and updated 3 stale assertions to the hardened verification semantics. No existing behavior weakened — all updates assert the fixed behavior.
+
+### 2. Final UI screenshots
+Browser preview is not enabled on this install, so screenshots were not captured here. Capture from the live URL below: (a) Command view after Launch (Swarm Graph + task structure + protocol stream), (b) Evidence trace of a VERIFIED claim, (c) Dispute arena with VS staging. All views render real backend state; empty states shown where backend has no data.
+
+### 3. Final live URL
+https://coreswarm.vercel.app (HTTP 200, verified this session)
+- `/api/llm` status: provider kintio configured ✅, gemini alternate configured ✅
+- Live Gemini completion verified: `gemini-3.5-flash-lite` answers via automatic Kintio→Gemini failover
+
+### 4. Final GitHub repo URL
+https://github.com/Zeeyan05/coreswarm (public, branch `main`)
+Latest commits: `7f525ba` Gemini 3.5 defaults → `864071c` error-detail surfacing → `7b33532` Gemini 2.5 defaults → `6682bed` cross-provider alternates → `320f6a0` sticky navbar/scroll fixes → `6bf4929` professional UI overhaul.
+
+### 5. Final test output
+See §12.1 above. Full log captured in-session: 10 files passed, 44 tests passed, 0 failed. Live Technocore round-trip test posts a real signed envelope and verifies it.
+
+### Backend integrity after UI work (verification order §2)
+UI work touched zero backend files except: mission ID format (readable, no behavior change), localStorage hydration fix (SSR correctness), and the LLM gateway (additive providers only). All 44 tests — including every audit-regression attack test — pass unchanged. Audited behavior intact.
+
+### Protocol (§3) / CoreSwarm (§4) / UI (§5)
+Per §§2–6 and §11 above; no regressions introduced post-audit. Live round-trip green this session.
+
+### Submission readiness (§6)
+- Repo: public, README current, MIT license.
+- Live demo: https://coreswarm.vercel.app (connected repo → auto-deploys on push).
+- Outstanding before submit: screenshots (see §12.2), contribution description, X post, exact submission sequence — awaiting FLOP submission spec.
